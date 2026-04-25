@@ -1,0 +1,437 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #f5f5f5;
+  --foreground: #0a0a0a;
+  --hero-bg: linear-gradient(160deg, #f0fdf4 0%, #dcfce7 25%, #bbf7d0 50%, #86efac 70%, #a8d946 100%);
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --border: #e5e5e5;
+  --ring: #0066ff;
+  --frame: #ffffff;
+  --accent: #a8d946;
+  --card-primary: #a8d946;
+  --card-secondary: #e8f5c8;
+  --card-foreground: #171717;
+  --card-foreground-muted: #525252;
+  --phone-screen: #f5f5f5;
+  --font-geist-sans: "Geist Variable", system-ui, -apple-system, sans-serif;
+  --font-geist-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --ai-grad-1: #65a30d;
+  --ai-grad-2: #a8d946;
+  --ai-grad-3: #ecfccb;
+}
+
+.dark {
+  --background: #141414;
+  --foreground: #fafafa;
+  --hero-bg: linear-gradient(135deg, #0f1410 0%, #152015 25%, #1a2e1a 50%, #1e3d1e 75%, #243d10 100%);
+  --muted: #171717;
+  --muted-foreground: #a3a3a3;
+  --border: #262626;
+  --ring: #3b82f6;
+  --frame: #000;
+  --accent: #a8d946;
+  --card-primary: #a8d946;
+  --card-secondary: #2a3a1a;
+  --card-foreground: #fafafa;
+  --card-foreground-muted: #d4d4d4;
+  --phone-screen: #f5f5f5;
+  --ai-grad-1: #84cc16;
+  --ai-grad-2: #a8d946;
+  --ai-grad-3: #4d7c0f;
+}
+
+@theme inline {
+  --color-frame: var(--frame);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-accent: var(--accent);
+  --color-card-primary: var(--card-primary);
+  --color-card-secondary: var(--card-secondary);
+  --color-card-foreground: var(--card-foreground);
+  --color-card-foreground-muted: var(--card-foreground-muted);
+  --color-phone-screen: var(--phone-screen);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+html {
+  color-scheme: light;
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html,
+body {
+  overscroll-behavior-x: none;
+}
+
+/* Custom text selection */
+::selection {
+  background-color: var(--accent);
+  color: white;
+}
+
+/* Font mai mare doar în app (dashboard), nu pe landing */
+html.app-font-large {
+  font-size: 1.25rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Custom toggle switch (replaces native checkbox) ────────────────── */
+.toggle-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--foreground);
+  opacity: 0.5;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.toggle-switch:checked {
+  background: var(--accent);
+}
+
+.toggle-switch:checked::after {
+  transform: translateX(16px);
+  opacity: 1;
+  background: white;
+}
+
+.toggle-switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Date / time / select inputs — theme-aware pickers ──────────────── */
+input[type="date"],
+input[type="time"],
+select {
+  color-scheme: dark;
+}
+
+html:not(.dark) input[type="date"],
+html:not(.dark) input[type="time"],
+html:not(.dark) select {
+  color-scheme: light;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Style the select dropdown arrow */
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 32px;
+}
+
+@property --ai-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.ai-gradient-border {
+  background: linear-gradient(
+    120deg,
+    color-mix(in oklab, var(--ai-grad-1) 70%, transparent),
+    color-mix(in oklab, var(--ai-grad-2) 70%, transparent),
+    color-mix(in oklab, var(--ai-grad-3) 70%, transparent)
+  );
+}
+
+.ai-gradient-border--active {
+  background: conic-gradient(
+    from var(--ai-angle),
+    var(--ai-grad-1),
+    var(--ai-grad-2),
+    var(--ai-grad-3),
+    var(--ai-grad-1)
+  );
+  animation: ai-rotate 4s linear infinite;
+}
+
+.ai-shimmer-text--active {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--foreground) 45%, transparent),
+    var(--foreground),
+    color-mix(in oklab, var(--foreground) 45%, transparent)
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ai-shimmer 1.8s ease-in-out infinite;
+}
+
+.ai-thinking-blob {
+  width: 28px;
+  height: 28px;
+  background: radial-gradient(circle at 30% 30%, var(--ai-grad-1), var(--ai-grad-2), var(--ai-grad-3));
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--ai-grad-2) 32%, transparent),
+    0 6px 20px color-mix(in oklab, var(--ai-grad-2) 30%, transparent);
+}
+
+.ai-sparkle-btn {
+  background: linear-gradient(115deg, var(--ai-grad-1), var(--ai-grad-2), var(--ai-grad-3));
+  background-size: 170% 170%;
+  animation: ai-shimmer 2.6s ease-in-out infinite;
+}
+
+@keyframes ai-rotate {
+  to {
+    --ai-angle: 360deg;
+  }
+}
+
+@keyframes ai-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* ─── AI finish pulse (<AIBottomGlow>) ─────────────────────────────────
+   Only outer box-shadow on the wrapper — no pseudo-layers on top of content
+   (previous conic+mask+full-bleed overlays tinted the whole card and looked
+   broken). Brand greens, short and calm. */
+.ai-bottom-glow {
+  position: relative;
+}
+
+.ai-bottom-glow[data-state="ready"] {
+  animation: ai-finish-halo 1.25s cubic-bezier(0.33, 0.9, 0.32, 1) forwards;
+}
+
+@keyframes ai-finish-halo {
+  0% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  12% {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--ai-grad-2) 50%, transparent),
+      0 0 16px color-mix(in oklab, var(--ai-grad-2) 25%, transparent),
+      0 0 32px color-mix(in oklab, var(--ai-grad-1) 12%, transparent);
+  }
+  38% {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--ai-grad-2) 20%, transparent),
+      0 0 6px color-mix(in oklab, var(--ai-grad-2) 8%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-bottom-glow[data-state="ready"] {
+    animation: none;
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--ai-grad-2) 40%, transparent);
+  }
+}
+
+body {
+  overflow-x: hidden;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: 1rem;
+  z-index: 9999;
+  padding: 0.75rem 1rem;
+  background: var(--background);
+  border: 2px solid var(--ring);
+  border-radius: 0.375rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--foreground);
+}
+
+.skip-to-content:focus {
+  left: 1rem;
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.site-frame {
+  display: block;
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  background-color: var(--frame);
+}
+
+.site-frame--top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+}
+
+.site-frame--bottom {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+}
+
+.site-frame--left {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 10px;
+}
+
+.site-frame--right {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+}
+
+/* Corner decorations */
+.site-corner {
+  display: block;
+  position: fixed;
+  z-index: 9998;
+  pointer-events: none;
+  color: var(--frame);
+}
+
+.site-corner--top-left {
+  transform: rotate(90deg);
+  top: 10px;
+  left: 10px;
+}
+
+.site-corner--top-right {
+  top: 10px;
+  right: 10px;
+  transform: rotate(180deg);
+}
+
+.site-corner--bottom-left {
+  bottom: 10px;
+  left: 10px;
+  transform: rotate(0deg);
+}
+
+.site-corner--bottom-right {
+  bottom: 10px;
+  right: 10px;
+  transform: rotate(270deg);
+}
+
+/* Hide frame and corners on mobile */
+@media (max-width: 850px) {
+  .site-frame,
+  .site-corner {
+    display: none;
+  }
+}
+
+/* ─── Blur-in headline ───────────────────────────────────────────────────────
+ * Scroll-driven reveal. The JS sets `--p` (0..1) on the paragraph once per
+ * animation frame while the section is on-screen. Each word reads its own
+ * progress via calc() and applies only opacity + filter locally, so no
+ * React re-render happens during scroll.
+ */
+.blur-headline__word {
+  /* per-word progress:  clamp((p - i/n) * n, 0, 1) */
+  --wp: clamp(
+    0,
+    calc((var(--p) - var(--i) / var(--n)) * var(--n)),
+    1
+  );
+  opacity: calc(var(--base-opacity) + var(--wp) * (1 - var(--base-opacity)));
+  filter: blur(calc((1 - var(--wp)) * var(--max-blur)));
+  /* Promote to its own compositor layer so blur + opacity run on the GPU. */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Accessibility + low-end fallback: JS sets data-mode="static" to opt-out. */
+.blur-headline[data-mode="static"] .blur-headline__word {
+  opacity: 1;
+  filter: none;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blur-headline__word {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+}
