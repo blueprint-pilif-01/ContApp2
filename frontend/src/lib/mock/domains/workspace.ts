@@ -458,6 +458,13 @@ export const workspaceHandler: MockHandler = ({ path, method, body, query }) => 
     if (!id || !getStore("notebookDocs", id)) return notFound();
     return json(upsertStore("notebookDocs", body ?? {}, id));
   }
+  if (path.match(/^\/notebook\/documents\/\d+$/) && method === "DELETE") {
+    const id = parseId(path.split("/").pop());
+    if (!id) return notFound();
+    const ok = stores.notebookDocs.delete(id);
+    if (!ok) return notFound();
+    return json({ message: "deleted" });
+  }
 
   if (path === "/planner/events" && method === "GET") {
     const raw = listStore("plannerEvents");
