@@ -1,5 +1,7 @@
 # ContApp Backend API Contract
 
+!!! did not double check might be rushed/wrong
+
 This document is the source of truth for every endpoint the polished frontend
 calls. The backend developer can implement these in any stack (Go, Node, etc.)
 as long as the contracts match. The frontend currently runs entirely on the
