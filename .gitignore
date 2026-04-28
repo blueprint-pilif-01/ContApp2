@@ -27,6 +27,8 @@ yarn-error.log*
 *.tsbuildinfo
 .vercel/
 .turbo/
+.gocache/
+**/.gocache/
 
 # IDE/editor
 .idea/

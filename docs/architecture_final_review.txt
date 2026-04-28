@@ -1,0 +1,119 @@
+ContApp Architecture Final Review
+=================================
+
+Workspace reviewed:
+/home/mk/Work/ContApp2
+
+This file now contains only the remaining architecture issues that still need
+attention. Resolved decisions were removed from this review after being applied
+to the main architecture documents.
+
+
+Resolved Decisions
+------------------
+
+These items were fixed and moved into the main docs:
+
+- Backend API was rewritten to follow `full_desc.txt` and
+  `contapp_database.dbml`.
+- Identity uses global `accounts` plus `organisation_memberships`.
+- Clients use one `clients` table with `client_type = person | company`.
+- `organisation_features` is the effective entitlement table.
+- Notes use only `workspace_notes`.
+- Contract dynamic fields live inside `contract_templates.content_json`.
+- Roles are organisation-scoped with `roles.organisation_id not null`.
+- Soft-deleted unique business keys use PostgreSQL partial unique indexes where
+  `deleted_at is null`.
+
+
+Remaining Issues
+----------------
+
+1. Frontend feature map still uses old task endpoint names.
+
+Problem:
+`docs/FRONTEND_FEATURE_MAP.md` still references:
+
+- `/ticketing/tasks`
+- `/chat/derive-task`
+
+Current backend/API direction uses:
+
+- `/ticketing/tickets`
+- `/chat/derive-ticket`
+
+Recommended fix:
+Update `docs/FRONTEND_FEATURE_MAP.md` and later frontend API calls to use ticket
+terminology. If temporary aliases are needed during frontend migration, document
+them as compatibility aliases only.
+
+
+2. AI request logging may store sensitive business data.
+
+Problem:
+`ai_requests.input_json` and `ai_requests.output_json` may contain contracts,
+chat messages, legislation summaries, employee data, or other sensitive
+business information.
+
+Recommended fix:
+Before production, define:
+
+- data retention period
+- redaction rules
+- whether full prompts are stored or only hashes/metadata
+- encryption strategy if sensitive input/output is persisted
+- admin access rules for AI logs
+
+
+3. Future extension tables are DBML-only for now.
+
+Problem:
+The DBML includes future architecture tables for:
+
+- custom fields
+- workflows
+- automations
+- integrations
+- webhooks
+- teams
+- branches
+- locations
+
+These are valid future extension points. They can stay in the DBML so the
+long-term architecture remains visible.
+
+Decision:
+Do not include these future extension tables in migration one. Add them later
+through separate migrations when the related package is implemented.
+
+Migration one should focus on:
+
+- organisations
+- accounts/auth/RBAC
+- base workspace
+- billing/feature activation
+- Contracts Pro
+- Ticketing Pro if needed for demo
+- audit/job foundation
+
+
+4. Chat is internal-only, but DB still has client conversation shape.
+
+Problem:
+The product description says first-stage chat is internal only. The DBML still
+allows chat conversations to have `type = client` and optional `client_id`.
+
+This is acceptable for future-proofing, but it can confuse first-stage scope.
+
+Recommended fix:
+Keep the fields only if they are clearly marked as disabled until the external
+chat extension exists. Runtime chat logic for stage one should allow only
+internal organisation memberships as participants.
+
+
+Final Recommendation
+--------------------
+
+The core architecture is now in good shape for migration planning. Do not start
+the first database migration until the remaining frontend endpoint drift and
+first-migration scope are cleaned up.
