@@ -26,7 +26,7 @@ implementing the matching APIs in `docs/BACKEND_API.md`.
 - Templates: `frontend/src/app/pages/contracts/TemplatesPage.tsx`
   - `GET /contracts/templates`, `POST /contracts/templates`
 - Editor: `frontend/src/app/pages/contracts/TemplateEditorPage.tsx`
-  - `GET /contracts/templates/:id`, `POST /contracts/template-fields`
+  - `GET /contracts/templates/:id`, `PUT /contracts/templates/:id`
 - Invites: `frontend/src/app/pages/contracts/InvitesPage.tsx`
   - `GET /contracts/invites`, `POST /contracts/invites`
 - Submissions: `frontend/src/app/pages/contracts/SubmissionsPage.tsx`
@@ -66,12 +66,21 @@ implementing the matching APIs in `docs/BACKEND_API.md`.
 - Page: `frontend/src/app/pages/planner/PlannerSmartPage.tsx`
 - Endpoints: `GET /planner/smart`
 
-## Notes (personal + shared)
+## Notes
 
-- Personal: `frontend/src/app/pages/notes/NotesPage.tsx`
-  - `GET /notes`, `POST /notes`, `GET /notes/:id`, `PUT /notes/:id`, `DELETE /notes/:id`
-- Shared: `frontend/src/app/pages/notes/WorkspaceNotesPage.tsx`
-  - `GET /workspace/notes`, `POST /workspace/notes`, `PUT /workspace/notes/:id`
+- Pages:
+  - `frontend/src/app/pages/notes/NotesPage.tsx`
+  - `frontend/src/app/pages/notes/WorkspaceNotesPage.tsx`
+- Database table: `workspace_notes`
+- Endpoints:
+  - `GET /notes`
+  - `POST /notes`
+  - `GET /notes/:id`
+  - `PUT /notes/:id`
+  - `DELETE /notes/:id`
+
+Use `visibility = personal | shared` instead of separate personal/shared note
+tables.
 
 ## Notebook
 
