@@ -4,6 +4,7 @@ import (
 	"backend/internal/models"
 	"context"
 	"database/sql"
+	"time"
 )
 
 type DatabaseRepo interface {
@@ -30,6 +31,8 @@ type IdentityRepository interface {
 	CreateRefreshSession(ctx context.Context, session *models.RefreshSession) error
 	GetRefreshSessionByJTI(ctx context.Context, jti string) (*models.RefreshSession, error)
 	RevokeRefreshSessionByJTI(ctx context.Context, jti string) error
+	RecordAccessTokenLogout(ctx context.Context, actorType string, subjectID int64, organisationID, membershipID *int64, loggedOutAt time.Time) error
+	IsAccessTokenLoggedOut(ctx context.Context, actorType string, subjectID int64, issuedAt time.Time) (bool, error)
 }
 
 type OrganisationRepository interface {

@@ -7,15 +7,15 @@
 -- contain database-level setup that local development needs before migrations
 -- run.
 
-\connect conta_db
+\connect contapp2
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS citext;
 
-ALTER DATABASE conta_db SET timezone TO 'Europe/Bucharest';
-ALTER DATABASE conta_db SET search_path TO public;
+ALTER DATABASE contapp2 SET timezone TO 'Europe/Bucharest';
+ALTER DATABASE contapp2 SET search_path TO public;
 
 ALTER ROLE app_user SET timezone TO 'Europe/Bucharest';
 ALTER ROLE app_user SET search_path TO public;
 
-COMMENT ON DATABASE conta_db IS 'ContApp local development database.';
+COMMENT ON DATABASE contapp2 IS 'ContApp2 local development database.';

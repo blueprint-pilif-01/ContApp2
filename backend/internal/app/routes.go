@@ -1,6 +1,7 @@
 package app
 
 import (
+	"backend/internal/platform/httpx"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -14,6 +15,8 @@ func (a *App) routes() http.Handler {
 	r.Use(a.logRequest)
 	r.Use(middleware.Recoverer)
 	r.Use(a.cors)
+	r.NotFound(a.notFound)
+	r.MethodNotAllowed(a.methodNotAllowed)
 
 	r.Get("/health", a.health)
 	r.Get("/ready", a.ready)
@@ -38,6 +41,16 @@ func (a *App) routes() http.Handler {
 	})
 
 	return r
+}
+
+func (a *App) notFound(w http.ResponseWriter, r *http.Request) {
+	a.Logger.Warn("route not found", "method", r.Method, "path", r.URL.Path, "remote_addr", r.RemoteAddr)
+	httpx.Error(w, http.StatusNotFound, "route not found")
+}
+
+func (a *App) methodNotAllowed(w http.ResponseWriter, r *http.Request) {
+	a.Logger.Warn("method not allowed", "method", r.Method, "path", r.URL.Path, "remote_addr", r.RemoteAddr)
+	httpx.Error(w, http.StatusMethodNotAllowed, "method not allowed")
 }
 
 func (a *App) mountProtectedRoutes(r chi.Router) {

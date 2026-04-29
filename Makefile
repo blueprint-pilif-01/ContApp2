@@ -7,7 +7,7 @@ FRONTEND_DIR := frontend
 COMPOSE_FILE := $(BACKEND_DIR)/configs/docker-compose.yml
 GO_ENV := GOCACHE=$$(pwd)/.gocache
 
-.PHONY: help ensure-env db-up db-down db-reset migrate-up migrate-down migrate-status backend frontend dev-up dev-up-no-migrate test-backend test-frontend test
+.PHONY: help ensure-env db-up db-down db-reset migrate-up migrate-down migrate-status seed-db backend frontend dev-up dev-up-no-migrate test-backend test-frontend test
 
 help:
 	@echo "Available targets:"
@@ -20,6 +20,7 @@ help:
 	@echo "  make migrate-up           - Apply backend migrations"
 	@echo "  make migrate-down         - Roll back one backend migration"
 	@echo "  make migrate-status       - Show backend migration status"
+	@echo "  make seed-db              - Insert local demo data"
 	@echo "  make backend              - Run backend only"
 	@echo "  make frontend             - Run frontend only"
 	@echo "  make test-backend         - Run backend tests"
@@ -55,6 +56,9 @@ migrate-down: ensure-env db-up
 
 migrate-status: ensure-env db-up
 	cd "$(BACKEND_DIR)" && $(GO_ENV) go run ./cmd/migrate status
+
+seed-db: ensure-env db-up migrate-up
+	docker exec -i contapp2-postgres psql -U app_user -d contapp2 < "$(BACKEND_DIR)/configs/seed.sql"
 
 backend: ensure-env db-up
 	cd "$(BACKEND_DIR)" && $(GO_ENV) go run ./cmd/api

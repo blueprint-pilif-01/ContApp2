@@ -43,7 +43,7 @@ func Load() (Config, error) {
 		AppEnv:              getEnv("APP_ENV", "local"),
 		HTTPAddr:            getEnv("APP_HTTP_ADDR", ":8080"),
 		APIBasePath:         getEnv("APP_API_BASE_PATH", "/api/v1"),
-		DatabaseURL:         getEnv("DATABASE_URL", "postgres://app_user:pwd1@localhost:5432/conta_db?sslmode=disable"),
+		DatabaseURL:         getEnv("DATABASE_URL", "postgres://app_user:pwd1@localhost:5433/contapp2?sslmode=disable"),
 		MigrationsDir:       getEnv("APP_MIGRATIONS_DIR", "./migrations"),
 		JWTSecret:           getEnv("APP_JWT_SECRET", "dev-insecure-change-me"),
 		JWTIssuer:           getEnv("APP_JWT_ISSUER", "contapp"),

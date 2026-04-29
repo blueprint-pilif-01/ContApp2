@@ -1,10 +1,30 @@
 package app
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/go-chi/chi/v5/middleware"
 )
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(status int) {
+	r.status = status
+	r.ResponseWriter.WriteHeader(status)
+}
+
+func (r *statusRecorder) Write(body []byte) (int, error) {
+	if r.status == 0 {
+		r.status = http.StatusOK
+	}
+	return r.ResponseWriter.Write(body)
+}
 
 func (a *App) cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -28,8 +48,33 @@ func (a *App) cors(next http.Handler) http.Handler {
 func (a *App) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		next.ServeHTTP(w, r)
-		a.Logger.Info("request", "method", r.Method, "path", r.URL.Path, "duration", time.Since(start).String())
+		recorder := &statusRecorder{ResponseWriter: w}
+		next.ServeHTTP(recorder, r)
+
+		status := recorder.status
+		if status == 0 {
+			status = http.StatusOK
+		}
+
+		level := slog.LevelInfo
+		switch {
+		case status >= 500:
+			level = slog.LevelError
+		case status >= 400:
+			level = slog.LevelWarn
+		}
+
+		a.Logger.Log(
+			r.Context(),
+			level,
+			"request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", status,
+			"duration", time.Since(start).String(),
+			"remote_addr", r.RemoteAddr,
+			"request_id", middleware.GetReqID(r.Context()),
+		)
 	})
 }
 
@@ -38,9 +83,9 @@ func bearerToken(r *http.Request) string {
 	if header == "" {
 		return ""
 	}
-	token, ok := strings.CutPrefix(header, "Bearer ")
-	if !ok {
+	parts := strings.SplitN(header, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
 		return ""
 	}
-	return strings.TrimSpace(token)
+	return strings.TrimSpace(parts[1])
 }

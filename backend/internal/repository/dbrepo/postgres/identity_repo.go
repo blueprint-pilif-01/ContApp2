@@ -207,6 +207,36 @@ func (r *PostgresDBRepo) RevokeRefreshSessionByJTI(ctx context.Context, jti stri
 	return err
 }
 
+func (r *PostgresDBRepo) RecordAccessTokenLogout(ctx context.Context, actorType string, subjectID int64, organisationID, membershipID *int64, loggedOutAt time.Time) error {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+
+	_, err := r.DB.ExecContext(ctx, `
+		INSERT INTO access_token_logout_events (
+			actor_type, subject_id, organisation_id, membership_id, logged_out_at
+		)
+		VALUES ($1, $2, $3, $4, $5)
+	`, actorType, subjectID, organisationID, membershipID, loggedOutAt)
+	return err
+}
+
+func (r *PostgresDBRepo) IsAccessTokenLoggedOut(ctx context.Context, actorType string, subjectID int64, issuedAt time.Time) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+
+	var exists bool
+	err := r.DB.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM access_token_logout_events
+			WHERE actor_type = $1
+				AND subject_id = $2
+				AND logged_out_at >= $3
+		)
+	`, actorType, subjectID, issuedAt).Scan(&exists)
+	return exists, err
+}
+
 type rowScanner interface {
 	Scan(dest ...any) error
 }
