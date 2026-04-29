@@ -30,12 +30,3 @@ func accountClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) 
 	}
 	return claims, true
 }
-
-func hasPermission(permissions []string, required string) bool {
-	for _, permission := range permissions {
-		if permission == required {
-			return true
-		}
-	}
-	return false
-}

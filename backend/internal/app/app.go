@@ -4,6 +4,7 @@ import (
 	"backend/internal/config"
 	"backend/internal/platform/auth"
 	platformdb "backend/internal/platform/db"
+	platformlogger "backend/internal/platform/logger"
 	"backend/internal/repository"
 	"backend/internal/repository/dbrepo"
 	"context"
@@ -34,7 +35,7 @@ func New(ctx context.Context) (*App, func(), error) {
 		return nil, nil, err
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := platformlogger.New(cfg.AppEnv, os.Stdout)
 
 	pool, err := platformdb.OpenPool(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -46,6 +47,14 @@ func New(ctx context.Context) (*App, func(), error) {
 		pool.Close()
 		return nil, nil, err
 	}
+
+	migrationVersion, err := platformdb.CurrentMigrationVersion(sqlDB)
+	if err != nil {
+		sqlDB.Close()
+		pool.Close()
+		return nil, nil, err
+	}
+	logger.Info("database connected", "migration_version", migrationVersion)
 
 	cleanup := func() {
 		sqlDB.Close()

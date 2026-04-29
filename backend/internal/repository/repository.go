@@ -4,6 +4,7 @@ import (
 	"backend/internal/models"
 	"context"
 	"database/sql"
+	"time"
 )
 
 type DatabaseRepo interface {
@@ -30,12 +31,29 @@ type IdentityRepository interface {
 	CreateRefreshSession(ctx context.Context, session *models.RefreshSession) error
 	GetRefreshSessionByJTI(ctx context.Context, jti string) (*models.RefreshSession, error)
 	RevokeRefreshSessionByJTI(ctx context.Context, jti string) error
+	RecordAccessTokenLogout(ctx context.Context, actorType string, subjectID int64, organisationID, membershipID *int64, loggedOutAt time.Time) error
+	IsAccessTokenLoggedOut(ctx context.Context, actorType string, subjectID int64, issuedAt time.Time) (bool, error)
 }
 
 type OrganisationRepository interface {
+	ListOrganisations(ctx context.Context) ([]models.Organisation, error)
+	CreateOrganisation(ctx context.Context, organisation *models.Organisation) error
 	GetOrganisationByID(ctx context.Context, id int64) (*models.Organisation, error)
+	UpdateOrganisationStatus(ctx context.Context, id int64, status string) error
 	GetOrganisationSettings(ctx context.Context, organisationID int64) (*models.OrganisationSettings, error)
+	ListOrganisationSubscriptions(ctx context.Context, organisationID int64) ([]models.Subscription, error)
 	ListEmployeeCategories(ctx context.Context, organisationID int64) ([]models.EmployeeCategory, error)
+	CreateEmployeeCategory(ctx context.Context, category *models.EmployeeCategory) error
+	UpdateEmployeeCategory(ctx context.Context, category *models.EmployeeCategory) error
+	DeleteEmployeeCategory(ctx context.Context, organisationID, id int64) error
+	ListWorkspaceMembers(ctx context.Context, organisationID int64) ([]models.WorkspaceMember, error)
+	GetWorkspaceMember(ctx context.Context, organisationID, membershipID int64) (*models.WorkspaceMember, error)
+	CreateWorkspaceMember(ctx context.Context, member *models.WorkspaceMember, passwordHash string) error
+	UpdateWorkspaceMember(ctx context.Context, member *models.WorkspaceMember) error
+	UpdateWorkspaceMemberStatus(ctx context.Context, organisationID, membershipID int64, status string) error
+	ListRoles(ctx context.Context, organisationID int64) ([]models.Role, error)
+	ListPermissions(ctx context.Context) ([]models.Permission, error)
+	SetMembershipRoles(ctx context.Context, organisationID, membershipID int64, roleIDs []int64) error
 }
 
 type EntitlementRepository interface {

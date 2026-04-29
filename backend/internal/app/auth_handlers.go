@@ -4,8 +4,10 @@ import (
 	"backend/internal/models"
 	"backend/internal/platform/auth"
 	"backend/internal/platform/httpx"
+	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -47,26 +49,32 @@ type workspaceResponse struct {
 func (a *App) loginAccount(w http.ResponseWriter, r *http.Request) {
 	var input loginRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
+		a.Logger.Warn("account login rejected", "reason", "invalid_body", "remote_addr", r.RemoteAddr)
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	input.normalize()
 
 	account, err := a.Repo.GetAccountByEmail(r.Context(), input.Email)
 	if err != nil {
+		a.logAuthFailure("account", input.Email, r, "email_not_found", err)
 		httpx.Error(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
 	if !auth.CheckPassword(account.PasswordHash, input.Password) {
+		a.logAuthFailure("account", input.Email, r, "password_mismatch", nil)
 		httpx.Error(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
 
 	workspaces, err := a.Repo.ListAccountWorkspaces(r.Context(), account.ID)
 	if err != nil {
+		a.Logger.Error("account login failed", "reason", "workspace_lookup_failed", "account_id", account.ID, "email", input.Email, "remote_addr", r.RemoteAddr, "error", err)
 		httpx.Error(w, http.StatusInternalServerError, "could not load workspaces")
 		return
 	}
 	if len(workspaces) == 0 {
+		a.Logger.Warn("account login rejected", "reason", "no_active_workspace", "account_id", account.ID, "email", input.Email, "remote_addr", r.RemoteAddr)
 		httpx.Error(w, http.StatusForbidden, "account has no active workspace")
 		return
 	}
@@ -74,14 +82,17 @@ func (a *App) loginAccount(w http.ResponseWriter, r *http.Request) {
 	selected := workspaces[0]
 	token, err := a.Tokens.AccountToken(account.ID, selected.OrganisationID, selected.MembershipID)
 	if err != nil {
+		a.Logger.Error("account login failed", "reason", "access_token_create_failed", "account_id", account.ID, "organisation_id", selected.OrganisationID, "membership_id", selected.MembershipID, "error", err)
 		httpx.Error(w, http.StatusInternalServerError, "could not create access token")
 		return
 	}
 	if err := a.issueAccountRefreshCookie(w, r, account.ID, selected.OrganisationID, selected.MembershipID); err != nil {
+		a.Logger.Error("account login failed", "reason", "refresh_session_create_failed", "account_id", account.ID, "organisation_id", selected.OrganisationID, "membership_id", selected.MembershipID, "error", err)
 		httpx.Error(w, http.StatusInternalServerError, "could not create refresh session")
 		return
 	}
 	_ = a.Repo.UpdateAccountLastLogin(r.Context(), account.ID)
+	a.Logger.Info("account login succeeded", "account_id", account.ID, "email", account.Email, "organisation_id", selected.OrganisationID, "membership_id", selected.MembershipID, "remote_addr", r.RemoteAddr)
 
 	httpx.JSON(w, http.StatusOK, loginResponse{
 		AccessToken: token,
@@ -95,35 +106,61 @@ func (a *App) loginAccount(w http.ResponseWriter, r *http.Request) {
 func (a *App) loginAdmin(w http.ResponseWriter, r *http.Request) {
 	var input loginRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
+		a.Logger.Warn("admin login rejected", "reason", "invalid_body", "remote_addr", r.RemoteAddr)
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	input.normalize()
 
 	admin, err := a.Repo.GetAdminByEmail(r.Context(), input.Email)
 	if err != nil {
+		a.logAuthFailure("admin", input.Email, r, "email_not_found", err)
 		httpx.Error(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
 	if !auth.CheckPassword(admin.PasswordHash, input.Password) {
+		a.logAuthFailure("admin", input.Email, r, "password_mismatch", nil)
 		httpx.Error(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
 
 	token, err := a.Tokens.AdminToken(admin.ID)
 	if err != nil {
+		a.Logger.Error("admin login failed", "reason", "access_token_create_failed", "admin_id", admin.ID, "error", err)
 		httpx.Error(w, http.StatusInternalServerError, "could not create access token")
 		return
 	}
 	if err := a.issueAdminRefreshCookie(w, r, admin.ID); err != nil {
+		a.Logger.Error("admin login failed", "reason", "refresh_session_create_failed", "admin_id", admin.ID, "error", err)
 		httpx.Error(w, http.StatusInternalServerError, "could not create refresh session")
 		return
 	}
+	a.Logger.Info("admin login succeeded", "admin_id", admin.ID, "email", admin.Email, "remote_addr", r.RemoteAddr)
 
 	httpx.JSON(w, http.StatusOK, loginResponse{
 		AccessToken: token,
 		TokenType:   "Bearer",
 		Admin:       adminPayload(admin),
 	})
+}
+
+func (input *loginRequest) normalize() {
+	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
+}
+
+func (a *App) logAuthFailure(actorType, email string, r *http.Request, reason string, err error) {
+	args := []any{
+		"actor_type", actorType,
+		"reason", reason,
+		"email", email,
+		"remote_addr", r.RemoteAddr,
+	}
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		args = append(args, "error", err)
+		a.Logger.Error("login failed", args...)
+		return
+	}
+	a.Logger.Warn("login rejected", args...)
 }
 
 func (a *App) refreshToken(w http.ResponseWriter, r *http.Request) {
@@ -196,16 +233,53 @@ func (a *App) refreshToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) logout(w http.ResponseWriter, r *http.Request) {
+	logoutAt := time.Now().UTC()
+	logoutRecorded := false
+
 	claims, err := a.refreshClaimsFromCookie(r)
 	if err == nil && claims.ID != "" {
 		if err := a.Repo.RevokeRefreshSessionByJTI(r.Context(), claims.ID); err != nil {
 			httpx.Error(w, http.StatusInternalServerError, "could not revoke refresh session")
 			return
 		}
+		if err := a.recordAccessTokenLogout(r, claims, logoutAt); err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "could not revoke access token")
+			return
+		}
+		logoutRecorded = true
+	}
+
+	if accessToken := bearerToken(r); accessToken != "" {
+		accessClaims, err := a.Tokens.Parse(accessToken)
+		if err == nil && accessClaims.TokenUse == "access" {
+			if err := a.recordAccessTokenLogout(r, accessClaims, logoutAt); err != nil {
+				httpx.Error(w, http.StatusInternalServerError, "could not revoke access token")
+				return
+			}
+			logoutRecorded = true
+		}
 	}
 
 	http.SetCookie(w, a.expiredRefreshCookie())
+	if logoutRecorded {
+		a.Logger.Info("logout succeeded", "remote_addr", r.RemoteAddr)
+	}
 	httpx.JSON(w, http.StatusAccepted, map[string]string{"status": "logged_out"})
+}
+
+func (a *App) recordAccessTokenLogout(r *http.Request, claims *auth.Claims, loggedOutAt time.Time) error {
+	subjectID := authSubjectID(claims)
+	if subjectID == 0 {
+		return nil
+	}
+
+	var organisationID *int64
+	var membershipID *int64
+	if claims.ActorType == "account" {
+		organisationID = int64Ptr(claims.OrganisationID)
+		membershipID = int64Ptr(claims.MembershipID)
+	}
+	return a.Repo.RecordAccessTokenLogout(r.Context(), claims.ActorType, subjectID, organisationID, membershipID, loggedOutAt)
 }
 
 func (a *App) authMe(w http.ResponseWriter, r *http.Request) {
