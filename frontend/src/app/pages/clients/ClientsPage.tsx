@@ -21,11 +21,15 @@ import { EmptyArt } from "../../../components/ui/EmptyArt";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { useCollectionCreate, useCollectionList } from "../../../hooks/useCollection";
 import { usePrincipal } from "../../../hooks/useMe";
+import { SkeletonRows } from "../../../components/ui/Skeleton";
+import { ErrorState } from "../../../components/ui/EmptyState";
 
 type Client = {
   id: number;
+  client_type?: "person" | "company";
   first_name: string;
   last_name: string;
+  company_name?: string;
   email: string;
   phone: string;
   status: string;
@@ -33,6 +37,11 @@ type Client = {
   cnp: number;
   organisation_id: number;
 };
+
+function clientDisplay(c: Client): string {
+  if (c.client_type === "company" && c.company_name) return c.company_name;
+  return `${c.first_name} ${c.last_name}`.trim() || `Client #${c.id}`;
+}
 
 const PAGE_SIZE = 8;
 
@@ -43,8 +52,11 @@ export default function ClientsPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [creating, setCreating] = useState(false);
+  const [clientType, setClientType] = useState<"person" | "company">("person");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [cui, setCui] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -153,7 +165,17 @@ export default function ClientsPage() {
           />
         </div>
 
-        {paged.length === 0 ? (
+        {list.isLoading ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <tbody>
+                <SkeletonRows rows={5} cols={4} />
+              </tbody>
+            </table>
+          </div>
+        ) : list.isError ? (
+          <ErrorState onRetry={() => list.refetch()} />
+        ) : paged.length === 0 ? (
           <EmptyArt
             icon={Users}
             title="Niciun client găsit"
@@ -185,12 +207,23 @@ export default function ClientsPage() {
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <Avatar name={`${client.first_name} ${client.last_name}`} />
+                        <Avatar name={clientDisplay(client)} />
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-foreground">
-                            {client.first_name} {client.last_name}
+                          <p className="text-sm font-semibold text-foreground inline-flex items-center gap-1.5">
+                            {clientDisplay(client)}
+                            <Badge
+                              variant="neutral"
+                              className="text-[9px] uppercase tracking-wider"
+                            >
+                              {client.client_type === "company"
+                                ? "Companie"
+                                : "Persoană"}
+                            </Badge>
                           </p>
-                          <p className="text-xs text-muted-foreground">CNP {client.cnp}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {client.client_type === "company" ? "CUI" : "CNP"}{" "}
+                            {client.cnp}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -267,17 +300,29 @@ export default function ClientsPage() {
             <Button
               loading={create.isPending}
               onClick={() => {
-                if (!firstName.trim() || !lastName.trim()) return;
+                const isCompany = clientType === "company";
+                if (isCompany && !companyName.trim()) return;
+                if (!isCompany && (!firstName.trim() || !lastName.trim())) return;
                 const ownerId = principal?.kind === "user" ? principal.id : 0;
                 const orgId =
                   principal?.kind === "user" ? principal.organisation_id ?? 0 : 0;
+                const cuiNum = cui.trim()
+                  ? Number.parseInt(cui, 10) || 0
+                  : Math.floor(1000000000000 + Math.random() * 8999999999999);
+                const fallbackEmail = isCompany
+                  ? `${companyName}@firma.ro`
+                      .toLowerCase()
+                      .replace(/[^a-z0-9@.]+/g, "")
+                  : `${firstName}.${lastName}@mail.ro`.toLowerCase();
                 create.mutate({
-                  cnp: Math.floor(1000000000000 + Math.random() * 8999999999999),
+                  client_type: clientType,
+                  cnp: cuiNum,
                   user_id: ownerId,
                   organisation_id: orgId,
-                  first_name: firstName,
-                  last_name: lastName,
-                  email: email || `${firstName}.${lastName}@mail.ro`.toLowerCase(),
+                  first_name: isCompany ? "" : firstName,
+                  last_name: isCompany ? "" : lastName,
+                  company_name: isCompany ? companyName : "",
+                  email: email || fallbackEmail,
                   phone,
                   status: "active",
                   address,
@@ -285,6 +330,8 @@ export default function ClientsPage() {
                 });
                 setFirstName("");
                 setLastName("");
+                setCompanyName("");
+                setCui("");
                 setEmail("");
                 setPhone("");
                 setAddress("");
@@ -296,10 +343,42 @@ export default function ClientsPage() {
           </div>
         }
       >
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="Prenume" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-          <Input label="Nume" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-        </div>
+        <SegmentedControl
+          value={clientType}
+          onChange={setClientType}
+          options={[
+            { id: "person", label: "Persoană fizică" },
+            { id: "company", label: "Companie" },
+          ]}
+        />
+        {clientType === "person" ? (
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Prenume"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+            />
+            <Input
+              label="Nume"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+            />
+          </div>
+        ) : (
+          <Input
+            label="Nume firmă"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            placeholder="ex: SC Atlas SRL"
+          />
+        )}
+        <Input
+          label={clientType === "company" ? "CUI" : "CNP (opțional)"}
+          type="number"
+          value={cui}
+          onChange={(e) => setCui(e.target.value)}
+          placeholder={clientType === "company" ? "12345678" : "auto-generat dacă lași gol"}
+        />
         <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <Input label="Telefon" value={phone} onChange={(e) => setPhone(e.target.value)} />
         <Input label="Adresă" value={address} onChange={(e) => setAddress(e.target.value)} />

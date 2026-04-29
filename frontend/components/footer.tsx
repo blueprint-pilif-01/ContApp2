@@ -10,6 +10,7 @@ const footerLinks = {
     { label: "Securitate", href: "#securitate" },
   ],
   companie: [
+    { label: "Solicită ofertă", href: "#contact" },
     { label: "FAQ", href: "#faq" },
     { label: "Termeni de utilizare", href: "#" },
     { label: "Politica de confidențialitate", href: "#" },
@@ -26,9 +27,12 @@ export function Footer(): ReactNode {
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = e.currentTarget;
-    const email = (form.elements.namedItem("footer-email") as HTMLInputElement)?.value?.trim();
-    navigate(email ? `/auth/register?email=${encodeURIComponent(email)}` : "/auth/register");
+    const contact = document.getElementById("contact");
+    if (contact) {
+      contact.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      navigate("/#contact");
+    }
   };
 
   return (
@@ -54,10 +58,11 @@ export function Footer(): ReactNode {
 
           <div className="relative z-10 flex flex-col items-center text-center px-10 py-20 max-[850px]:px-6 max-[850px]:py-14">
             <h2 className="text-5xl max-[850px]:text-3xl text-foreground font-semibold tracking-tight max-w-2xl mb-3 max-[850px]:mb-4 leading-[1.15]">
-              Începe cu Free și fă upgrade când ai nevoie.
+              Începe cu pachetul de bază. Activezi extensii când vrei.
             </h2>
             <p className="text-muted-foreground text-base mb-10 max-[850px]:mb-8 max-[850px]:text-sm">
-              Fără card. Fără angajamente. Upgrade sau downgrade oricând.
+              Pachet de bază gratuit. Extensii la alegere. Plătești în funcție
+              de numărul de angajați.
             </p>
 
             <form onSubmit={handleFormSubmit} className="flex items-center w-full max-w-md bg-frame/90 dark:bg-frame/80 border border-border/60 rounded-xl p-1.5 shadow-sm max-[850px]:flex-col max-[850px]:p-3 max-[850px]:gap-3 max-[850px]:max-w-none">
@@ -75,7 +80,7 @@ export function Footer(): ReactNode {
                 type="submit"
                 className="flex items-center justify-center gap-2 px-5 py-2.5 bg-foreground hover:bg-foreground/90 text-background rounded-lg text-sm font-semibold transition-colors whitespace-nowrap max-[850px]:w-full max-[850px]:py-3 shrink-0"
               >
-                Creează cont
+                Solicită ofertă
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </button>
             </form>

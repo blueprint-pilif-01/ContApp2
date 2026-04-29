@@ -22,8 +22,11 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { logout, useMe } from "../../hooks/useMe";
+import { useExtensions } from "../../hooks/useExtensions";
 import { queryClient } from "../../lib/queryClient";
 import { Avatar } from "../../components/ui/Avatar";
+import { ExtensionLock } from "../../components/ui/ExtensionLock";
+import type { ExtensionKey } from "../../lib/extensions";
 
 interface NavItem {
   label: string;
@@ -31,6 +34,8 @@ interface NavItem {
   icon: typeof LayoutDashboard;
   end: boolean;
   badge?: string;
+  /** When set, the item is gated by an extension and shows a lock when off. */
+  extension?: ExtensionKey;
 }
 
 const navGroups: { label?: string; items: NavItem[] }[] = [
@@ -48,6 +53,7 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
         icon: Sparkles,
         end: false,
         badge: "AI",
+        extension: "ai_assistant",
       },
       {
         label: "Calendar",
@@ -60,9 +66,9 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
   {
     label: "Operațional",
     items: [
-      { label: "Clienți", href: "/app/clients", icon: Users, end: false },
-      { label: "Ticketing", href: "/app/ticketing", icon: KanbanSquare, end: false },
-      { label: "Chat intern", href: "/app/chat", icon: MessageSquare, end: false },
+      { label: "Clienți", href: "/app/clients", icon: Users, end: false, extension: "contracts_pro" },
+      { label: "Ticketing", href: "/app/ticketing", icon: KanbanSquare, end: false, extension: "ticketing_pro" },
+      { label: "Chat intern", href: "/app/chat", icon: MessageSquare, end: false, extension: "internal_chat" },
     ],
   },
   {
@@ -73,18 +79,21 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
         href: "/app/contracts/templates",
         icon: FileText,
         end: false,
+        extension: "contracts_pro",
       },
       {
         label: "Solicitări",
         href: "/app/contracts/invites",
         icon: Send,
         end: false,
+        extension: "contracts_pro",
       },
       {
         label: "Submisii",
         href: "/app/contracts/submissions",
         icon: FileCheck,
         end: false,
+        extension: "contracts_pro",
       },
     ],
   },
@@ -98,8 +107,8 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
   {
     label: "People",
     items: [
-      { label: "HR", href: "/app/hr", icon: BriefcaseBusiness, end: false },
-      { label: "Legislație", href: "/app/legislation", icon: Scale, end: false },
+      { label: "HR", href: "/app/hr", icon: BriefcaseBusiness, end: false, extension: "hr_pro" },
+      { label: "Legislație", href: "/app/legislation", icon: Scale, end: false, extension: "legislation_monitor" },
       { label: "Rapoarte", href: "/app/reports", icon: BarChart3, end: false },
     ],
   },
@@ -130,6 +139,7 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
 
 export function Sidebar() {
   const { data: me } = useMe();
+  const ext = useExtensions();
   const navigate = useNavigate();
   const location = useLocation();
   const currentSearch = location.search;
@@ -191,33 +201,42 @@ export function Sidebar() {
               </p>
             )}
             <ul className="space-y-0.5">
-              {group.items.map((item) => (
-                <li key={item.href}>
-                  <NavLink
-                    to={item.href}
-                    end={item.end}
-                    className={({ isActive }) =>
-                      cn(
-                        "group flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] transition-all",
-                        isItemActive(item, isActive)
-                          ? "bg-foreground text-background font-semibold shadow-sm"
-                          : "text-foreground/70 hover:text-foreground hover:bg-foreground/5"
-                      )
-                    }
-                  >
-                    <item.icon
-                      className="w-4 h-4 shrink-0"
-                      strokeWidth={1.85}
-                    />
-                    <span className="flex-1">{item.label}</span>
-                    {item.badge && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-[color:var(--ai-grad-1)] to-[color:var(--ai-grad-3)] text-white">
-                        {item.badge}
-                      </span>
-                    )}
-                  </NavLink>
-                </li>
-              ))}
+              {group.items.map((item) => {
+                const locked =
+                  !!item.extension && ext.isReady && !ext.canUse(item.extension);
+                return (
+                  <li key={item.href}>
+                    <NavLink
+                      to={item.href}
+                      end={item.end}
+                      title={locked ? `Necesită ${item.extension}` : undefined}
+                      className={({ isActive }) =>
+                        cn(
+                          "group flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] transition-all",
+                          isItemActive(item, isActive)
+                            ? "bg-foreground text-background font-semibold shadow-sm"
+                            : "text-foreground/70 hover:text-foreground hover:bg-foreground/5",
+                          locked && "opacity-60"
+                        )
+                      }
+                    >
+                      <item.icon
+                        className="w-4 h-4 shrink-0"
+                        strokeWidth={1.85}
+                      />
+                      <span className="flex-1">{item.label}</span>
+                      {item.badge && !locked && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-[color:var(--ai-grad-1)] to-[color:var(--ai-grad-3)] text-white">
+                          {item.badge}
+                        </span>
+                      )}
+                      {locked && item.extension && (
+                        <ExtensionLock extension={item.extension} />
+                      )}
+                    </NavLink>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}

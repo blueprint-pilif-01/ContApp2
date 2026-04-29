@@ -14,24 +14,24 @@ interface MockSummary {
   counts: {
     clients?: number;
     invites?: number;
-    tasks?: number;
+    tickets?: number;
   };
 }
 
 async function pingMock(): Promise<MockSummary> {
   try {
-    const [health, clients, invites, tasks] = await Promise.all([
+    const [health, clients, invites, tickets] = await Promise.all([
       api.get<MockHealthResponse>("/health"),
       api.get<unknown[]>("/clients"),
       api.get<unknown[]>("/contracts/invites"),
-      api.get<unknown[]>("/ticketing/tasks"),
+      api.get<unknown[]>("/ticketing/tickets"),
     ]);
     return {
       ok: health?.status === "active",
       counts: {
         clients: Array.isArray(clients) ? clients.length : 0,
         invites: Array.isArray(invites) ? invites.length : 0,
-        tasks: Array.isArray(tasks) ? tasks.length : 0,
+        tickets: Array.isArray(tickets) ? tickets.length : 0,
       },
     };
   } catch {
@@ -73,7 +73,7 @@ export function MockHealthPill() {
 
   const total = (data.counts.clients ?? 0) +
     (data.counts.invites ?? 0) +
-    (data.counts.tasks ?? 0);
+    (data.counts.tickets ?? 0);
 
   return (
     <button
@@ -83,7 +83,7 @@ export function MockHealthPill() {
       className="hidden md:inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-1 rounded-full border border-[color:var(--accent)]/40 bg-[color:var(--accent)]/15 text-foreground"
     >
       <Database className="w-3 h-3" />
-      Mock · {data.counts.clients}c · {data.counts.invites}i · {data.counts.tasks}t
+      Mock · {data.counts.clients}c · {data.counts.invites}i · {data.counts.tickets}t
       {isFetching && <RefreshCw className="w-3 h-3 animate-spin" />}
       <span className="sr-only">{total} entries total</span>
     </button>

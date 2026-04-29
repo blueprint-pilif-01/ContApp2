@@ -20,8 +20,10 @@ import { Avatar } from "../../../components/ui/Avatar";
 import { AIResultCard, AIShimmerText, AIThinkingBlob } from "../../../components/ai";
 import { Button } from "../../../components/ui/Button";
 import { useCollectionCreate, useCollectionList } from "../../../hooks/useCollection";
+import { useExtensions } from "../../../hooks/useExtensions";
+import { useToast } from "../../../components/ui/Toast";
 import { api } from "../../../lib/api";
-import { deriveTask } from "../../../lib/mockAI";
+import { deriveTicket } from "../../../lib/mockAI";
 import { fmtRelative, cn } from "../../../lib/utils";
 import { MessageTemplates } from "./MessageTemplates";
 
@@ -77,6 +79,9 @@ function renderMessageHtml(content: string): string {
 }
 
 export default function ChatPage() {
+  const ext = useExtensions();
+  const toast = useToast();
+  const aiAvailable = ext.canUse("ai_assistant");
   const conversations = useCollectionList<Conversation>(
     "chat-conversations",
     "/chat/conversations"
@@ -140,19 +145,23 @@ export default function ChatPage() {
   const triggerBot = async () => {
     const plain = stripHtml(draft);
     if (!plain.trim()) return;
+    if (!aiAvailable) {
+      toast.error("AI Assistant nu este activ. Activează-l din Setări → Abonament.");
+      return;
+    }
     setBotBusy(true);
     setConfirmation(null);
     let latest = "";
-    for await (const chunk of deriveTask(plain)) {
+    for await (const chunk of deriveTicket(plain)) {
       latest = chunk;
       setBotDraft(chunk);
     }
     const result = await api.post<{
-      task: { id: number; title: string };
+      ticket: { id: number; title: string };
       confirmation: string;
-    }>("/chat/derive-task", { message: plain });
+    }>("/chat/derive-ticket", { message: plain });
     await send.mutateAsync({ content: `@bot ${latest}` });
-    setConfirmation(result.confirmation || `Am creat taskul #${result.task.id}.`);
+    setConfirmation(result.confirmation || `Am creat ticketul #${result.ticket.id}.`);
     setBotBusy(false);
     setDraft("");
     setAttachments([]);
@@ -302,8 +311,19 @@ export default function ChatPage() {
         </div>
 
         <div className="px-3 py-2 border-t border-border text-[11px] text-muted-foreground flex items-center justify-between shrink-0 bg-frame">
-          <span className="inline-flex items-center gap-1">
-            <Bot className="w-3 h-3 text-foreground/70" /> @bot disponibil
+          <span
+            className={cn(
+              "inline-flex items-center gap-1",
+              !aiAvailable && "opacity-60"
+            )}
+            title={
+              aiAvailable
+                ? "Scrie @bot ... pentru a deriva un ticket"
+                : "Necesită AI Assistant"
+            }
+          >
+            <Bot className="w-3 h-3 text-foreground/70" />
+            {aiAvailable ? "@bot disponibil" : "@bot blocat"}
           </span>
           <span>{(conversations.data ?? []).length} total</span>
         </div>

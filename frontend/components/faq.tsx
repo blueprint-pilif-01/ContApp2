@@ -5,44 +5,44 @@ import { useState, type ReactNode } from "react";
 
 const faqs = [
   {
+    question: "Cum funcționează prețurile pe extensii?",
+    answer:
+      "Pachetul de bază este gratuit (dashboard, notebook, planner, documente, useri, roluri, categorii angajați) — pentru maxim 10 angajați. Adaugi doar extensiile de care ai nevoie (Contracts Pro, Ticketing Pro, HR Pro, Internal Chat, Legislation Monitor, AI Assistant) și plătești în funcție de banda de angajați. Nu cumperi pachete fixe cu funcții pe care nu le folosești.",
+  },
+  {
+    question: "Pentru cine este ContApp?",
+    answer:
+      "Pentru orice echipă mică sau medie care vrea un workspace unitar: contabili, birouri de avocatură, agenții de servicii, HR-uri interne, consultanți, distribuitori, lanțuri mici. Configurezi extensiile în funcție de domeniul tău — un cabinet contabil va activa Contracts Pro + Legislation Monitor, un departament HR va activa HR Pro + Internal Chat, o agenție va activa Ticketing Pro + Internal Chat etc.",
+  },
+  {
     question: "Pot începe gratuit fără card bancar?",
     answer:
-      "Da. Planul Free nu necesită card. Poți crea șabloane, trimite invitații de semnare și primi PDF-uri fără nicio plată. Upgrade-ul se face doar când ai nevoie de volum mai mare sau funcții avansate (clienți, rapoarte, alerte).",
+      "Da. Pachetul de bază nu necesită card. Primești dashboard, notebook, notițe personale și partajate, planner simplu, documente, useri + roluri și categorii de angajați. Plătești doar când activezi prima extensie.",
   },
   {
-    question: "Cum funcționează semnarea? Are nevoie clientul de cont?",
+    question: "Cum funcționează semnarea contractelor?",
     answer:
-      "Nu. Generezi un link public de semnare și îl trimiți pe email, WhatsApp sau orice alt canal. Clientul tău deschide link-ul, completează câmpurile și semnează direct din browser — fără cont, fără aplicație. Primești notificare și PDF automat imediat după.",
+      "Cu extensia Contracts Pro activă: generezi un link public de semnare și îl trimiți pe email, WhatsApp sau orice canal. Clientul tău (persoană fizică sau companie) deschide link-ul, completează câmpurile dinamice și semnează direct din browser — fără cont, fără aplicație. Primești PDF semnat automat în dosarul clientului.",
   },
   {
-    question: "Ce se întâmplă când ating limita planului?",
+    question: "Cum funcționează benzile de angajați?",
     answer:
-      "Vei vedea în dashboard consumul curent față de limita planului (ex: 4/5 semnări). Când atingi limita, funcțiile afectate sunt blocate cu mesaj explicit de upgrade. Nu ești debitat automat. Poți face upgrade oricând din Settings → Abonament.",
+      "Există 5 benzi: 1–10 (banda de bază, fără cost suplimentar), 11–20, 21–30, 31–50 și 51+ (custom). Fiecare bandă aplică un multiplicator pe prețul fiecărei extensii și o taxă de capacitate suplimentară. Banda 51+ este personalizată — te contactăm cu o ofertă dedicată.",
   },
   {
-    question: "Pot schimba planul? Există penalități?",
+    question: "Pot activa/dezactiva extensii oricând?",
     answer:
-      "Poți face upgrade sau downgrade oricând, fără penalități. Schimbările se aplică imediat pentru upgrade și la sfârșitul perioadei curente pentru downgrade. Plățile sunt gestionate prin Stripe — poți modifica sau anula din Billing Portal fără să contactezi suportul.",
+      "Da. Din panoul de admin al organizației poți activa sau dezactiva orice extensie. Modificările intră în vigoare imediat și sunt facturate pro-rata. Dezactivarea unei extensii nu șterge datele — rămân disponibile dacă reactivezi extensia mai târziu.",
   },
   {
-    question: "Exporturile CSV sunt incluse? În ce plan?",
+    question: "Ce este AI Assistant și cum se facturează?",
     answer:
-      "Exportul CSV este disponibil din planul Starter. Poți filtra pe perioadă, client sau status și exporta instant. Planul Free nu include rapoarte sau export.",
+      "AI Assistant este un add-on care activează capabilități AI peste celelalte module: derivare tickete din chat, sumarizare legislație, digest pe topic, smart planner zilnic. Se facturează separat (credite AI) — uzajul este urmărit independent de extensiile principale, ca să poți controla costurile.",
   },
   {
-    question: "Ce include Pro față de Starter? Ce sunt \"dosarele de client\"?",
+    question: "Cine este platform admin? Eu pot administra organizația mea?",
     answer:
-      "Pro adaugă dosare per client: poți atașa documente (contracte, acte, situații) la profilul clientului. De asemenea, poți atașa documente direct la contracte. Starter include clienți și date de contact, dar fără stocare de documente. Pro include și limite mai mari (200 clienți, 100 semnări/lună).",
-  },
-  {
-    question: "Pentru câți clienți e potrivit ContApp?",
-    answer:
-      "Free: fără gestionare clienți. Starter: până la 50 clienți. Pro: până la 200. Business: nelimitat. Dacă ai un cabinet mic (10-30 clienți), Starter acoperă tot fluxul. Pro e recomandat dacă ai dosare complexe sau peste 50 de clienți activi.",
-  },
-  {
-    question: "Există plan anual? Sunt reduceri?",
-    answer:
-      "Da, planurile anuale vor fi disponibile cu reducere față de plata lunară. Detaliile exacte vor fi anunțate la lansare. Dacă ești interesat de acces early cu discount, înscrie-te la waitlist.",
+      "Sunt două nivele. Platform admin (super-admin) administrează platforma ContApp global — vede toate organizațiile. Tu (organisation admin / business owner) administrezi doar organizația ta: useri, roluri, categorii angajați, abonament, extensii. Nu vezi datele altor organizații.",
   },
 ];
 
@@ -66,7 +66,7 @@ function FAQItem({
       viewport={{ once: true, margin: "-50px" }}
       transition={{ duration: 0.5, ease, delay: index * 0.05 }}
       onClick={onToggle}
-      className="cursor-pointer rounded-2xl bg-frame p-5 shadow-sm sm:p-6"
+      className="cursor-pointer rounded-2xl bg-frame p-5 shadow-sm sm:p-6 flex flex-col"
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -77,14 +77,15 @@ function FAQItem({
       }}
       aria-expanded={isOpen}
     >
-      <div className="flex w-full items-center justify-between gap-4 text-left">
-        <span className="text-base font-medium text-foreground sm:text-lg">
+      {/* Înălțime minimă comună ca rândurile cu titluri pe 1 vs 2 linii să pară echilibrate */}
+      <div className="flex w-full items-start justify-between gap-3 sm:gap-4 text-left min-h-[5.75rem] sm:min-h-[6.25rem] lg:min-h-[7rem]">
+        <span className="text-base font-medium text-foreground sm:text-lg flex-1 min-w-0 pr-2 leading-snug">
           {faq.question}
         </span>
         <motion.div
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.3, ease }}
-          className="shrink-0"
+          className="shrink-0 pt-0.5"
         >
           <ChevronDown className="h-5 w-5 text-muted-foreground" />
         </motion.div>
@@ -109,22 +110,22 @@ function FAQItem({
 }
 
 export function FAQ(): ReactNode {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   const handleToggle = (index: number) => {
-    setOpenIndex(openIndex === index ? null : index);
+    setOpenIndex((prev) => (prev === index ? null : index));
   };
 
   return (
     <section className="w-full px-6 py-20 sm:py-28">
       <span id="securitate" className="block scroll-mt-24" aria-hidden="true" />
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-5xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, ease }}
-          className="mb-12 sm:mb-16"
+          className="mb-10 sm:mb-14 max-w-3xl"
         >
           <span className="text-sm font-medium text-muted-foreground">
             Întrebări frecvente
@@ -159,7 +160,10 @@ export function FAQ(): ReactNode {
           </div>
         </motion.div>
 
-        <div className="flex flex-col gap-3" role="list">
+        <div
+          className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-x-6 lg:gap-y-4 lg:items-start"
+          role="list"
+        >
           {faqs.map((faq, index) => (
             <FAQItem
               key={index}

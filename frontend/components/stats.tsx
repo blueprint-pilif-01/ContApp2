@@ -5,24 +5,24 @@ const ease = [0.23, 1, 0.32, 1] as const;
 
 const comparisons = [
   {
-    label: "Contract nou pentru un client PFA — de la șablon până la semnătură primită",
+    label: "Contract nou pentru un client (persoană sau firmă) — de la șablon până la semnătură primită",
     before: { label: "~45 min", pct: 100 },
     after:  { label: "4 min",   pct: 9   },
   },
   {
-    label: "Vezi cine dintre clienți nu a semnat încă contractul trimis săptămâna trecută",
-    before: { label: "~40 min", pct: 100 },
+    label: "Vezi cine din echipă lucrează la ce și ce e blocat (în loc de status meeting-uri)",
+    before: { label: "~30 min", pct: 100 },
     after:  { label: "5 sec",   pct: 1   },
   },
   {
-    label: "Afli când apare o modificare legislativă importantă pentru biroul tău",
-    before: { label: "zile întregi", pct: 100 },
-    after:  { label: "instant",  pct: 2 },
-  },
-  {
-    label: "Regăsești un contract semnat de acum 6 luni",
+    label: "Aprobi o cerere de concediu și o pui automat în calendarul echipei",
     before: { label: "~15 min", pct: 100 },
     after:  { label: "10 sec",  pct: 1   },
+  },
+  {
+    label: "Afli când apare o modificare legislativă importantă pentru afacerea ta",
+    before: { label: "zile întregi", pct: 100 },
+    after:  { label: "instant",  pct: 2 },
   },
 ];
 
@@ -114,8 +114,8 @@ export function Stats(): ReactNode {
           >
             {[
               { value: "−80%", label: "timp pe administrare lunară" },
-              { value: "0",    label: "follow-up-uri manuale" },
-              { value: "∞",    label: "contracte stocate digital" },
+              { value: "0",    label: "Excel-uri partajate cu echipa" },
+              { value: "∞",    label: "documente, tickete, mesaje stocate" },
             ].map((s) => (
               <div key={s.label}>
                 <p className="text-3xl font-bold text-accent">{s.value}</p>

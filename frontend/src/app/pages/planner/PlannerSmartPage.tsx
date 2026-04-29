@@ -17,6 +17,8 @@ import { Button } from "../../../components/ui/Button";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Badge } from "../../../components/ui/Badge";
 import { PageHeader } from "../../../components/ui/PageHeader";
+import { Skeleton } from "../../../components/ui/Skeleton";
+import { ErrorState } from "../../../components/ui/EmptyState";
 import { AIBottomGlow, AIShimmerText, AIThinkingBlob } from "../../../components/ai";
 import { suggestPlanForUser } from "../../../lib/mockAI";
 import { fmtRelative, cn } from "../../../lib/utils";
@@ -69,7 +71,7 @@ export default function PlannerSmartPage() {
     "planner-smart",
     "/planner/smart"
   );
-  const tickets = useCollectionList<Ticket>("ticketing", "/ticketing/tasks");
+  const tickets = useCollectionList<Ticket>("ticketing", "/ticketing/tickets");
   const events = useCollectionList<PlannerEvent>("planner-events", "/planner/events");
   const invites = useCollectionList<Invite>("invites-list", "/contracts/invites");
 
@@ -174,9 +176,18 @@ export default function PlannerSmartPage() {
                 Toate <ArrowRight className="w-3 h-3" />
               </Button>
             </header>
-            {todayTickets.length === 0 ? (
+            {tickets.isLoading ? (
+              <div className="px-5 py-4 space-y-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : tickets.isError ? (
+              <div className="px-5 py-6">
+                <ErrorState onRetry={() => tickets.refetch()} />
+              </div>
+            ) : todayTickets.length === 0 ? (
               <p className="px-5 py-8 text-sm text-muted-foreground text-center">
-                Niciun task urgent astăzi.
+                Niciun ticket urgent astăzi.
               </p>
             ) : (
               <ul className="divide-y divide-border">
@@ -238,7 +249,16 @@ export default function PlannerSmartPage() {
                 Pipeline <ArrowRight className="w-3 h-3" />
               </Button>
             </header>
-            {expiringInvites.length === 0 ? (
+            {invites.isLoading ? (
+              <div className="px-5 py-4 space-y-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : invites.isError ? (
+              <div className="px-5 py-6">
+                <ErrorState onRetry={() => invites.refetch()} />
+              </div>
+            ) : expiringInvites.length === 0 ? (
               <p className="px-5 py-8 text-sm text-muted-foreground text-center">
                 Nicio solicitare care expiră în următoarele 5 zile.
               </p>

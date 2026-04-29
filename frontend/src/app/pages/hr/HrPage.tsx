@@ -20,6 +20,8 @@ import { Badge } from "../../../components/ui/Badge";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { EmptyArt } from "../../../components/ui/EmptyArt";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
+import { SkeletonList } from "../../../components/ui/Skeleton";
+import { ErrorState } from "../../../components/ui/EmptyState";
 import {
   useCollectionCreate,
   useCollectionList,
@@ -135,7 +137,11 @@ function HoursTab() {
           </Button>
         }
       >
-        {(list.data ?? []).length === 0 ? (
+        {list.isLoading ? (
+          <SkeletonList rows={3} />
+        ) : list.isError ? (
+          <ErrorState onRetry={() => list.refetch()} />
+        ) : (list.data ?? []).length === 0 ? (
           <EmptyArt icon={Clock} title="Niciun pontaj" description="Înregistrează prima zi de muncă." />
         ) : (
           <ul className="divide-y divide-border -mx-2">
@@ -211,6 +217,17 @@ function LeavesTab() {
         </Button>
       </div>
 
+      {list.isError && (
+        <ErrorState onRetry={() => list.refetch()} />
+      )}
+      {list.isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <SkeletonList rows={2} />
+          <SkeletonList rows={2} />
+          <SkeletonList rows={2} />
+        </div>
+      )}
+      {!list.isLoading && !list.isError && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {groups.map((g) => {
           const items = (list.data ?? []).filter((l) => l.status === g);
@@ -263,6 +280,7 @@ function LeavesTab() {
           );
         })}
       </div>
+      )}
 
       <Drawer
         open={open}
@@ -332,7 +350,11 @@ function ReviewsTab() {
         </Button>
       </div>
       <SectionCard title="Review-uri ale echipei" description="Evaluări recente cu scor și sumar.">
-        {(list.data ?? []).length === 0 ? (
+        {list.isLoading ? (
+          <SkeletonList rows={3} />
+        ) : list.isError ? (
+          <ErrorState onRetry={() => list.refetch()} />
+        ) : (list.data ?? []).length === 0 ? (
           <EmptyArt icon={Star} title="Niciun review" description="Salvează primul review pentru un coleg." />
         ) : (
           <ol className="relative border-l border-border pl-5 space-y-4">

@@ -55,14 +55,17 @@ export async function* topicDigest(
   }
 }
 
-export async function* deriveTask(
+export async function* deriveTicket(
   message: string
 ): AsyncGenerator<string, void, unknown> {
-  // Best-effort local draft — the actual task creation happens through
-  // POST /chat/derive-task. Streamed copy is just shown next to the bot bubble.
-  const result = `Am identificat un task din mesaj: "${message.slice(0, 100)}". Propun: verificare, asignare responsabil, termen 3 zile, status inițial "todo".`;
+  // Best-effort local draft — the actual ticket creation happens through
+  // POST /chat/derive-ticket. Streamed copy is just shown next to the bot bubble.
+  const result = `Am identificat un ticket din mesaj: "${message.slice(0, 100)}". Propun: verificare, asignare responsabil, termen 3 zile, status inițial "todo".`;
   yield* streamText(result, 10, 28);
 }
+
+/** @deprecated Renamed to {@link deriveTicket}. Retained as a thin alias. */
+export const deriveTask = deriveTicket;
 
 export async function* suggestPlanForUser(
   userName: string,

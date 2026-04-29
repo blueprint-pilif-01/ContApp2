@@ -18,9 +18,9 @@ mock layer in `frontend/src/lib/mock/`.
 | Feature                           | Coverage notes                                   |
 | --------------------------------- | ------------------------------------------------ |
 | Gestionare contracte              | Existing ContApp surface + new list & public flow |
-| Ticketing System                  | Borrowed from BV `social_media_tasks` `[B]`       |
+| Ticketing System                  | Borrowed from BV `social_media_tasks`, renamed to `/ticketing/tickets` `[B]` `[N]` |
 | Internal Communication (chat)     | Borrowed from BV `messaging` `[B]`                |
-| Chat bot derive task              | New on top of chat `[N]`                          |
+| Chat bot derive ticket            | New on top of chat — `/chat/derive-ticket` `[N]`  |
 | Users + Roles + Permissions       | Borrowed from BV `users` + `permissions` `[B]`    |
 | HR (pontaj/concedii/review/cert.) | New `[N]`                                         |
 | Notebook (long form docs)         | New `[N]`                                         |
@@ -28,6 +28,11 @@ mock layer in `frontend/src/lib/mock/`.
 | Calendar / Planner                | New `[N]`                                         |
 | Planner Smart (AI plan)           | New `[N]`                                         |
 | Legislation news + AI             | New `[N]`                                         |
+| Extension activation              | `/organisations/me/extensions` + admin toggles `[N]` |
+| Admin console                     | Full CRUD under `/admin/*` (orgs, users, plans, jobs, audit) `[N]` |
+| Subscription plans editor         | `/admin/subscription-plans` with limits + features `[N]` |
+| Employee categories               | `/settings/employee-categories` (HR labels) `[N]`  |
+| Public landing                    | Static React landing at `/` `[N]`                  |
 
 ## Auth
 
@@ -47,6 +52,15 @@ Login response shape:
 }
 ```
 
+Admin login response shape:
+
+```json
+{
+  "token": { "access_token": "...", "refresh_token": "..." },
+  "admin": { "id": 1, "email": "...", "first_name": "...", "permissions": ["*"] }
+}
+```
+
 ## Dashboard
 
 | Method | Path                  | Purpose                                | Origin |
@@ -60,16 +74,41 @@ Response shape:
 {
   "kpis": {
     "clients": 0,
+    "clients_new_this_month": 0,
     "invites_active": 0,
+    "invites_expiring_soon": 0,
     "submissions_total": 0,
-    "tasks_open": 0
+    "submissions_this_month": 0,
+    "tasks_open": 0,
+    "tasks_overdue": 0,
+    "tasks_due_today": 0
   },
+  "contract_pipeline": {
+    "draft": 0,
+    "sent": 0,
+    "viewed": 0,
+    "signed": 0,
+    "expired": 0
+  },
+  "urgent_items": [
+    { "id": "exp-inv-1", "type": "expiring_invite", "title": "...", "detail": "...", "due": "ISO", "link": "/app/contracts/invites" }
+  ],
   "recent_activity": [
-    { "id": "submission-1", "label": "...", "at": "ISO", "type": "submission" }
+    { "id": "submission-1", "label": "...", "at": "ISO", "type": "submission", "actor": "..." }
   ],
   "upcoming": [
-    { "id": 1, "title": "...", "date": "ISO", "category": "contract" }
-  ]
+    { "id": 1, "title": "...", "date": "ISO", "date_end": "ISO", "category": "contract" }
+  ],
+  "team_workload": [
+    { "id": 1, "name": "...", "open": 0, "in_progress": 0, "done_this_week": 0 }
+  ],
+  "plan_usage": {
+    "plan": "Growth",
+    "templates": { "used": 0, "limit": 0 },
+    "signings": { "used": 0, "limit": 0 },
+    "clients": { "used": 0, "limit": 0 },
+    "storage_mb": { "used": 0, "limit": 0 }
+  }
 }
 ```
 
@@ -84,6 +123,16 @@ Response shape:
 | DELETE | `/clients/:id` | delete        | `[E]`  |
 
 `GET` accepts `?q=` for free-text search.
+
+Per the architecture (Sec.3 of `full_desc.txt` and the DBML), there is a
+single `clients` table with `client_type ∈ "person" | "company"`. The frontend
+form switches between two layouts:
+
+- `client_type = "person"` → `first_name`, `last_name`, `cnp` (CNP)
+- `client_type = "company"` → `company_name`, `cnp` (used as the CUI)
+
+Both shapes share `email`, `phone`, `address`, `status`, `organisation_id`,
+`signature_id`. Clients are gated on the `contracts_pro` extension.
 
 ## Contracts
 
@@ -181,18 +230,25 @@ and `revoked` terminal.
 
 ## Ticketing System
 
-| Method | Path                                 | Purpose                | Origin |
-| ------ | ------------------------------------ | ---------------------- | ------ |
-| GET    | `/ticketing/tasks`                   | list with filters      | `[B]`  |
-| POST   | `/ticketing/tasks`                   | create                 | `[B]`  |
-| PUT    | `/ticketing/tasks/:id`               | update fields/status   | `[B]`  |
-| POST   | `/ticketing/tasks/:id/claim`         | claim/assign self      | `[B]`  |
-| POST   | `/ticketing/tasks/:id/complete`      | mark done              | `[B]`  |
-| POST   | `/ticketing/tasks/:id/refuse`        | release/refuse         | `[B]`  |
+> **Renamed:** the public surface is `/ticketing/tickets*`. The previous name
+> `/ticketing/tasks*` is retired — frontend no longer calls it.
 
-`GET` accepts `?status=todo|in_progress|blocked|done` and `?assignee_id=`.
+| Method | Path                                  | Purpose                | Origin |
+| ------ | ------------------------------------- | ---------------------- | ------ |
+| GET    | `/ticketing/tickets`                  | list with filters      | `[B]`  |
+| POST   | `/ticketing/tickets`                  | create                 | `[B]`  |
+| PUT    | `/ticketing/tickets/:id`              | update fields/status   | `[B]`  |
+| POST   | `/ticketing/tickets/:id/claim`        | claim/assign self      | `[B]`  |
+| POST   | `/ticketing/tickets/:id/complete`     | mark done              | `[B]`  |
+| POST   | `/ticketing/tickets/:id/refuse`       | release/refuse         | `[B]`  |
+
+`GET` accepts `?status=todo|in_progress|blocked|done`, `?assignee_id=`, and
+`?client_id=` (used by the per-client tab on `ClientDetailPage`).
 
 Status lifecycle: `todo → in_progress → done` with `blocked` as a side state.
+
+Tickets must require the `ticketing_pro` extension to be active on the
+calling organisation (see "Extensions" below).
 
 ## Chat (internal)
 
@@ -201,20 +257,28 @@ Status lifecycle: `todo → in_progress → done` with `blocked` as a side state
 | GET    | `/chat/conversations`                         | list conversations            | `[B]`  |
 | GET    | `/chat/conversations/:id/messages`            | list messages in conversation | `[B]`  |
 | POST   | `/chat/conversations/:id/messages`            | send message                  | `[B]`  |
-| POST   | `/chat/derive-task`                           | bot derives a ticket          | `[N]`  |
+| POST   | `/chat/derive-ticket`                         | bot derives a ticket          | `[N]`  |
 
-Conversation types: `direct | group | client`.
+> **Renamed:** the bot endpoint is `/chat/derive-ticket` (was `/chat/derive-task`).
+> The legacy path is no longer mocked.
 
-The bot endpoint should accept `{ message: string }` and return:
+Conversation types: `direct | group | client`. For the first stage chat is
+internal-only between organisation memberships; the `client` conversation type
+is reserved for the future external-chat extension.
+
+Chat itself requires `internal_chat`. The `derive-ticket` endpoint additionally
+requires `ai_assistant`.
+
+The bot endpoint accepts `{ message: string }` and returns:
 
 ```json
 {
-  "task": { "id": 0, "title": "..." },
-  "confirmation": "Am creat taskul #..."
+  "ticket": { "id": 0, "title": "..." },
+  "confirmation": "Am creat ticketul #..."
 }
 ```
 
-## Settings: Users, Roles, Permissions
+## Settings: Users, Roles, Permissions, Employee Categories
 
 | Method | Path                                       | Purpose                | Origin |
 | ------ | ------------------------------------------ | ---------------------- | ------ |
@@ -230,6 +294,14 @@ The bot endpoint should accept `{ message: string }` and return:
 | PUT    | `/settings/roles/:id`                      | update role            | `[B]`  |
 | DELETE | `/settings/roles/:id`                      | delete role            | `[B]`  |
 | GET    | `/settings/permissions/effective/:userId` | effective permissions  | `[B]`  |
+| GET    | `/settings/employee-categories`            | list categories        | `[N]`  |
+| POST   | `/settings/employee-categories`            | create category        | `[N]`  |
+| PUT    | `/settings/employee-categories/:id`        | update category        | `[N]`  |
+| DELETE | `/settings/employee-categories/:id`        | delete category        | `[N]`  |
+
+Employee category body shape: `{ name, description, color }`. Categories are
+labels for HR/reporting per Sec.7 of `full_desc.txt` — they do **not**
+control permissions. Permissions stay role-based.
 
 The frontend currently treats roles + permissions as a flat matrix. The
 backend may keep BV's department concept internally but should expose this
@@ -270,17 +342,32 @@ Certificate request body includes `{ type: "employee_certificate" | "income_cert
 | GET    | `/notebook/documents`           | list documents           | `[N]`  |
 | POST   | `/notebook/documents`           | create document          | `[N]`  |
 | PUT    | `/notebook/documents/:id`       | update document          | `[N]`  |
+| DELETE | `/notebook/documents/:id`       | delete document          | `[N]`  |
 | GET    | `/workspace/notes`              | list shared/personal notes | `[N]` |
 | POST   | `/workspace/notes`              | create note              | `[N]`  |
 | PUT    | `/workspace/notes/:id`          | update note              | `[N]`  |
-| GET    | `/notes`                        | personal notes (legacy)  | `[E]`  |
-| POST   | `/notes`                        | create personal note     | `[E]`  |
-| GET    | `/notes/:id`                    | read personal note       | `[E]`  |
-| PUT    | `/notes/:id`                    | update personal note     | `[E]`  |
-| DELETE | `/notes/:id`                    | delete personal note     | `[E]`  |
 
 Note visibility values: `private | shared` for notebook, `personal | shared`
 for workspace notes.
+
+## Ops + Extensions (currently used by frontend pages)
+
+| Method | Path                      | Purpose                                 | Origin |
+| ------ | ------------------------- | --------------------------------------- | ------ |
+| GET    | `/activity-log`           | activity feed list                      | `[N]`  |
+| GET    | `/reports/overview`       | dashboard/report aggregates             | `[N]`  |
+| GET    | `/message-templates`      | list messaging templates                | `[N]`  |
+| POST   | `/message-templates`      | create template                         | `[N]`  |
+| DELETE | `/message-templates/:id`  | delete template                         | `[N]`  |
+| GET    | `/documents`              | list document hub items                 | `[N]`  |
+| POST   | `/documents/upload`       | upload/create document                  | `[N]`  |
+| POST   | `/documents/folder`       | create folder item                      | `[N]`  |
+| DELETE | `/documents/:id`          | delete document/folder item             | `[N]`  |
+| GET    | `/automation-rules`       | list automations                        | `[N]`  |
+| POST   | `/automation-rules`       | create automation                       | `[N]`  |
+| PUT    | `/automation-rules/:id`   | update automation                       | `[N]`  |
+| DELETE | `/automation-rules/:id`   | delete automation                       | `[N]`  |
+| GET    | `/portal/:token/overview` | public client portal overview (no auth) | `[N]`  |
 
 ## Calendar / Planner
 
@@ -309,6 +396,131 @@ returns plain JSON. When you wire a real LLM, return SSE / chunked text and
 expand the frontend accordingly (today the streaming is simulated locally
 in `frontend/src/lib/mockAI.ts`).
 
+## Extensions + Subscription (current organisation)
+
+| Method | Path                              | Purpose                              | Origin |
+| ------ | --------------------------------- | ------------------------------------ | ------ |
+| GET    | `/organisations/me/extensions`    | active extension map                 | `[N]`  |
+| PUT    | `/organisations/me/extensions`    | toggle a single extension            | `[N]`  |
+| GET    | `/organisations/me/subscription`  | plan + extensions + usage + limits   | `[N]`  |
+
+Extension keys (stable IDs): `contracts_pro`, `ticketing_pro`, `hr_pro`,
+`internal_chat`, `legislation_monitor`, `ai_assistant`, `multi_site_teams`.
+
+`GET /organisations/me/extensions` response:
+
+```json
+{
+  "extensions": {
+    "contracts_pro": true,
+    "ticketing_pro": true,
+    "hr_pro": true,
+    "internal_chat": true,
+    "legislation_monitor": true,
+    "ai_assistant": true,
+    "multi_site_teams": false
+  }
+}
+```
+
+`PUT /organisations/me/extensions` body: `{ key: ExtensionKey, enabled: bool }`.
+Returns the same shape as `GET`. In production this should reflect what the
+billing reconciliation has flipped on; in dev the mock persists toggles in
+`localStorage` so a developer can preview gated UI without Stripe.
+
+`GET /organisations/me/subscription` response:
+
+```json
+{
+  "id": "sub_...",
+  "plan": "Business",
+  "status": "active",
+  "period_end": "ISO",
+  "cancel_at_period_end": false,
+  "extensions": { "contracts_pro": true, "ai_assistant": false, "...": "..." },
+  "limits": {
+    "templates": 30,
+    "signings_per_month": 300,
+    "clients": null,
+    "storage_mb": 5120
+  },
+  "usage": {
+    "templates": 0,
+    "signings_this_month": 0,
+    "clients": 0,
+    "storage_mb": 0
+  }
+}
+```
+
+The frontend gates pages/sections via `RequireExtension` and inline checks via
+`useExtensions().canUse(...)`. See `docs/FRONTEND_FEATURE_MAP.md` for which
+pages require which extension.
+
+## Admin Console
+
+Mounted at `/admin/*` on the frontend, separate from the regular app. Backend
+should accept the same JWT but require an `admin` actor kind.
+
+| Method | Path                                              | Purpose                              | Origin |
+| ------ | ------------------------------------------------- | ------------------------------------ | ------ |
+| GET    | `/admin/dashboard`                                | KPIs + recent rows                   | `[N]`  |
+| GET    | `/admin/organisations`                            | list (with `?status=`, `?q=`)        | `[N]`  |
+| POST   | `/admin/organisations`                            | create org (auditable)               | `[N]`  |
+| GET    | `/admin/organisations/:id`                        | read (with embedded extension map)   | `[N]`  |
+| PUT    | `/admin/organisations/:id`                        | update org (auditable)               | `[N]`  |
+| DELETE | `/admin/organisations/:id`                        | delete org (auditable)               | `[N]`  |
+| POST   | `/admin/organisations/:id/suspend`                | suspend org (auditable)              | `[N]`  |
+| POST   | `/admin/organisations/:id/restore`                | restore org (auditable)              | `[N]`  |
+| GET    | `/admin/organisations/:id/extensions`             | per-org extension map                | `[N]`  |
+| PUT    | `/admin/organisations/:id/extensions`             | toggle per-org extension (auditable) | `[N]`  |
+| GET    | `/admin/users`                                    | cross-org user list (with `?q=`, `?organisation_id=`) | `[N]`  |
+| POST   | `/admin/users`                                    | create user (auditable)              | `[N]`  |
+| GET    | `/admin/users/:id`                                | read user                            | `[N]`  |
+| PUT    | `/admin/users/:id`                                | update user                          | `[N]`  |
+| DELETE | `/admin/users/:id`                                | delete user (auditable)              | `[N]`  |
+| POST   | `/admin/users/:id/impersonate`                    | issue impersonation token            | `[N]`  |
+| GET    | `/admin/subscription-plans`                       | list plans                           | `[N]`  |
+| POST   | `/admin/subscription-plans`                       | create plan with limits + features   | `[N]`  |
+| PUT    | `/admin/subscription-plans/:id`                   | update plan                          | `[N]`  |
+| DELETE | `/admin/subscription-plans/:id`                   | delete plan                          | `[N]`  |
+| GET    | `/admin/billing`                                  | MRR + active subs + per-org list     | `[N]`  |
+| GET    | `/admin/billing/events`                           | recent Stripe-style events           | `[N]`  |
+| GET    | `/admin/files`                                    | storage usage + orphans              | `[N]`  |
+| GET    | `/admin/contracts`                                | cross-org contracts overview         | `[N]`  |
+| GET    | `/admin/notifications`                            | recent notifications                 | `[N]`  |
+| POST   | `/admin/notifications/broadcast`                  | broadcast to all users               | `[N]`  |
+| GET    | `/admin/jobs`                                     | recent job runs                      | `[N]`  |
+| POST   | `/admin/jobs/:name/trigger`                       | manually trigger a job               | `[N]`  |
+| GET    | `/admin/audit`                                    | audit events (with `?organisation_id`, `?action`) | `[N]` |
+
+Subscription plan body shape:
+
+```json
+{
+  "slug": "pro",
+  "name": "Pro",
+  "price": 199,
+  "currency": "RON",
+  "stripe_price_id": "price_pro_monthly",
+  "limits": {
+    "users": 20,
+    "clients": 200,
+    "templates": 10,
+    "signings_per_month": 100,
+    "storage_mb": 2048
+  },
+  "features": ["contracts_pro", "ticketing_pro"]
+}
+```
+
+Limits accept positive integers or `null` for "unlimited". `features` is an
+array of `ExtensionKey` values from the registry above.
+
+Creating, updating, deleting, suspending, restoring an organisation, creating
+or deleting a user, toggling per-org extensions, and any manual job trigger
+should all emit an audit event with `actor_kind = "admin"`.
+
 ## Response shape conventions
 
 - `POST` may return either the resource directly or
@@ -322,3 +534,9 @@ in `frontend/src/lib/mockAI.ts`).
 - Public sign endpoints are token-based, no auth.
 - Permission model is role-based; permissions array on the user can include
   the wildcard `"*"` to grant all.
+- All `/admin/*` endpoints require an admin-kind principal. Non-admin sessions
+  must receive 403.
+- Endpoints that touch a paid-only module (clients, contracts/*, ticketing/*,
+  hr/*, chat/*, legislation/*, ai/*) must additionally check the calling
+  organisation's `organisation_features` row and reject with 402 / `feature_locked`
+  when inactive.

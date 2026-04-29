@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
 const HEADLINE =
-  "Contabilii care folosesc ContApp elimină împrăștierea în fișiere, WhatsApp, mailuri și foldere. Contractele, clienții, termenele și rapoartele sunt într-un singur loc — cu status clar, alerte automate și export rapid.";
+  "Echipele care folosesc ContApp scapă de haosul în Excel, WhatsApp, mailuri și foldere. Clienții, contractele, ticketele, concediile și legislația sunt într-un singur loc — cu status clar, alerte automate și acces controlat.";
 
 const MAX_BLUR_PX = 6;
 const BASE_OPACITY = 0.15;

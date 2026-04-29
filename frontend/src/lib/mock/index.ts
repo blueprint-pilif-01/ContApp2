@@ -1,10 +1,19 @@
+import { adminHandler } from "./domains/admin";
 import { authHandler } from "./domains/auth";
+import { billingHandler } from "./domains/billing";
 import { resourceHandler } from "./domains/resources";
 import { workspaceHandler } from "./domains/workspace";
 import { newFeaturesHandler } from "./domains/newFeatures";
 import { withLatency, type MockBody, type MockCtx, type MockHandler } from "./shared";
 
-const handlers: MockHandler[] = [authHandler, workspaceHandler, newFeaturesHandler, resourceHandler];
+const handlers: MockHandler[] = [
+  authHandler,
+  adminHandler,
+  billingHandler,
+  workspaceHandler,
+  newFeaturesHandler,
+  resourceHandler,
+];
 
 function normalizePath(pathname: string): string {
   // Strip any "/api" or "/api/v<n>" prefix that the BASE_URL might inject.
