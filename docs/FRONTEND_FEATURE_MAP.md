@@ -66,7 +66,7 @@ Extension keys: `contracts_pro`, `ticketing_pro`, `hr_pro`, `internal_chat`,
 - Templates: `frontend/src/app/pages/contracts/TemplatesPage.tsx`
   - `GET /contracts/templates`, `POST /contracts/templates`
 - Editor: `frontend/src/app/pages/contracts/TemplateEditorPage.tsx`
-  - `GET /contracts/templates/:id`, `POST /contracts/template-fields`
+  - `GET /contracts/templates/:id`, `PUT /contracts/templates/:id`
 - Invites: `frontend/src/app/pages/contracts/InvitesPage.tsx`
   - `GET /contracts/invites`, `POST /contracts/invites`
 - Submissions: `frontend/src/app/pages/contracts/SubmissionsPage.tsx`
@@ -107,7 +107,23 @@ Extension keys: `contracts_pro`, `ticketing_pro`, `hr_pro`, `internal_chat`,
 - Page: `frontend/src/app/pages/planner/PlannerSmartPage.tsx`
 - Endpoints: `GET /planner/smart`, `GET /ticketing/tickets`, `GET /planner/events`, `GET /contracts/invites`
 
-## Notebook (free base)
+## Notes
+
+- Pages:
+  - `frontend/src/app/pages/notes/NotesPage.tsx`
+  - `frontend/src/app/pages/notes/WorkspaceNotesPage.tsx`
+- Database table: `workspace_notes`
+- Endpoints:
+  - `GET /notes`
+  - `POST /notes`
+  - `GET /notes/:id`
+  - `PUT /notes/:id`
+  - `DELETE /notes/:id`
+
+Use `visibility = personal | shared` instead of separate personal/shared note
+tables.
+
+## Notebook
 
 - Page: `frontend/src/app/pages/notebook/NotebookPage.tsx`
 - Replaces the old separate `NotesPage` / `WorkspaceNotesPage`. Switch via `?view=private|shared`.

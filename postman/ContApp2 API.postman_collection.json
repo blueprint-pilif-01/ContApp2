@@ -1,0 +1,227 @@
+{
+  "info": {
+    "_postman_id": "c708e4ff-75db-4a72-8a9d-contapp2api",
+    "name": "ContApp2 API",
+    "description": "Local checks for ContApp2 using backend/configs/seed.sql data. Run make migrate-up, make seed-db, and make backend before using this collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}/health" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('health is ok', function () { pm.response.to.have.status(200); });"] } }]
+        },
+        {
+          "name": "Ready",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}/ready" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('ready is ok', function () { pm.response.to.have.status(200); });"] } }]
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}" },
+            "url": "{{base_url}}{{api_base}}/auth/admin/login"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('admin login returns 200', function () { pm.response.to.have.status(200); });",
+            "const json = pm.response.json();",
+            "pm.test('admin token exists', function () { pm.expect(json.access_token).to.be.a('string').and.not.empty; });",
+            "pm.environment.set('admin_access_token', json.access_token);"
+          ] } }]
+        },
+        {
+          "name": "Admin Me",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{admin_access_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}{{api_base}}/auth/me"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('admin me returns 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('admin actor type', function () { pm.expect(pm.response.json().actor_type).to.eql('admin'); });"
+          ] } }]
+        },
+        {
+          "name": "Admin Refresh Token",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}{{api_base}}/auth/refresh-token" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('admin refresh returns 200', function () { pm.response.to.have.status(200); });",
+            "const json = pm.response.json();",
+            "pm.environment.set('admin_access_token', json.access_token);"
+          ] } }]
+        },
+        {
+          "name": "Admin Read Clients",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{admin_access_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}{{api_base}}/clients"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('admin can read clients', function () { pm.response.to.have.status(200); });"] } }]
+        },
+        {
+          "name": "Admin Logout",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{admin_access_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}{{api_base}}/auth/logout"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('admin logout accepted', function () { pm.response.to.have.status(202); });"] } }]
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "User Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\"\n}" },
+            "url": "{{base_url}}{{api_base}}/auth/login"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('user login returns 200', function () { pm.response.to.have.status(200); });",
+            "const json = pm.response.json();",
+            "pm.test('user token exists', function () { pm.expect(json.access_token).to.be.a('string').and.not.empty; });",
+            "pm.environment.set('user_access_token', json.access_token);",
+            "if (json.workspace) {",
+            "  pm.environment.set('organisation_id', String(json.workspace.organisation_id));",
+            "  pm.environment.set('membership_id', String(json.workspace.membership_id));",
+            "}"
+          ] } }]
+        },
+        {
+          "name": "User Me",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{user_access_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}{{api_base}}/auth/me"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('user me returns 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('user actor type', function () { pm.expect(pm.response.json().actor_type).to.eql('account'); });"
+          ] } }]
+        },
+        {
+          "name": "User Organisations",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{user_access_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}{{api_base}}/auth/organisations"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('organisations returns 200', function () { pm.response.to.have.status(200); });",
+            "const json = pm.response.json();",
+            "pm.test('seed user has workspaces', function () { pm.expect(json.workspaces).to.be.an('array').that.is.not.empty; });",
+            "if (json.workspaces && json.workspaces.length > 0) {",
+            "  pm.environment.set('organisation_id', String(json.workspaces[0].organisation_id));",
+            "  pm.environment.set('membership_id', String(json.workspaces[0].membership_id));",
+            "}"
+          ] } }]
+        },
+        {
+          "name": "User Refresh Token",
+          "request": { "method": "GET", "header": [], "url": "{{base_url}}{{api_base}}/auth/refresh-token" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('user refresh returns 200', function () { pm.response.to.have.status(200); });",
+            "const json = pm.response.json();",
+            "pm.environment.set('user_access_token', json.access_token);"
+          ] } }]
+        },
+        {
+          "name": "List Clients",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{user_access_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}{{api_base}}/clients"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('clients returns 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('seed clients exist', function () { pm.expect(pm.response.json().clients).to.be.an('array').that.is.not.empty; });"
+          ] } }]
+        },
+        {
+          "name": "List Files",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{user_access_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}{{api_base}}/files"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('files returns 200', function () { pm.response.to.have.status(200); });"] } }]
+        },
+        {
+          "name": "List Organisation Documents",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{user_access_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}{{api_base}}/organisation-documents"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('organisation documents returns 200', function () { pm.response.to.have.status(200); });"] } }]
+        },
+        {
+          "name": "List Contract Templates",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{user_access_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}{{api_base}}/contracts/templates"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('contract templates returns 200', function () { pm.response.to.have.status(200); });",
+            "pm.test('seed template exists', function () { pm.expect(pm.response.json().contract_templates).to.be.an('array').that.is.not.empty; });"
+          ] } }]
+        },
+        {
+          "name": "List Workspace Notes",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{user_access_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}{{api_base}}/workspace-notes"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('workspace notes returns 200', function () { pm.response.to.have.status(200); });"] } }]
+        },
+        {
+          "name": "List Ticketing Tasks",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{user_access_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}{{api_base}}/ticketing/tasks"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('ticketing tasks returns 200', function () { pm.response.to.have.status(200); });"] } }]
+        },
+        {
+          "name": "User Logout",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{user_access_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}{{api_base}}/auth/logout"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('user logout accepted', function () { pm.response.to.have.status(202); });"] } }]
+        }
+      ]
+    }
+  ]
+}

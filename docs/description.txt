@@ -1,0 +1,36 @@
+
+List of paid features :
+- Contracts management : This feature is used for contracts management, 
+
+- Ticketing System: A small Jira like ticket management  
+-- Asign tasck to the emploee 
+-- Manage tasks  
+-- Completare 
+-- Vizualizare in calendar
+
+- Internal communication
+--Interna bussines Messaging app  
+--Robot in the chat to derive tasks (complex feature)
+
+- HR
+--Recording hours
+--Leaving Permision
+--Concediu(odihna medical sabatic maternal)
+--Adeverinta angajat 
+--Adeverinta venit angajat  
+--Planing the vactation  
+--Emploee review 
+
+- Legislation News
+-- Filter news for specific domanin, bussines activitie domanin 
+-- configure what news to receive 
+-- AI feaures (sumarize pe topic etc)
+
+- Planner Smart (AI driven)
+
+Default features:
+- Notebook
+- Personal/Shared notes 
+- Calendar/Planner, simple
+- Gestionare Angajati(Simplu)
+

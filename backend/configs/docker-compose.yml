@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: contapp2-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: pwd1
+      POSTGRES_DB: contapp2
+      TZ: Europe/Bucharest
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - contapp2_database:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d contapp2"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  contapp2_database:

@@ -1,0 +1,464 @@
+ContApp Implementation Tasks
+============================
+
+This file splits the implementation into practical phases. The order is meant
+to produce a working demo first, then add paid extensions and future-ready
+architecture without rewriting the core platform.
+
+
+Phase 0 - Product And Architecture Baseline
+-------------------------------------------
+
+[ ] Review and approve docs/full_desc.txt as the product source of truth.
+[ ] Review and approve docs/contapp_database.dbml as the visual database model.
+[ ] Review and approve docs/BACKEND_API.md as the backend API contract.
+[ ] Decide which current frontend pages are demo-critical.
+[ ] Decide which modules are base features and which are paid extensions.
+[ ] Keep pricing as placeholder until business validation is done.
+[ ] Define final naming convention:
+    - organisation, not tenant
+    - ticket, not simple task
+    - extension/package, not random feature flag
+
+
+Phase 1 - Database Foundation
+-----------------------------
+
+[ ] Create initial PostgreSQL migrations from the DBML.
+[ ] Add core organisation tables:
+    - organisations
+    - organisation_settings
+[ ] Add identity/RBAC tables:
+    - platform admins
+    - global accounts
+    - organisation memberships
+    - roles
+    - permissions
+    - membership_roles
+    - role_permissions
+    - refresh_sessions
+[ ] Add employee category table.
+[ ] Add billing foundation tables:
+    - subscription_plans
+    - subscriptions
+    - usage_counters
+    - stripe_events
+[ ] Add extension activation tables:
+    - organisation_features
+    - organisation_feature_limits
+    - usage_counters
+[ ] Add audit/job tables:
+    - events
+    - job_runs
+[ ] Add standard columns where needed:
+    - organisation_id
+    - created_at
+    - updated_at
+    - deleted_at
+[ ] Add indexes for organisation-scoped queries.
+[ ] Add foreign keys and uniqueness constraints.
+[ ] Convert DBML logical uniqueness into PostgreSQL partial unique indexes for
+    soft-deleted tables where deleted_at is null.
+[ ] Add seed data:
+    - platform admin
+    - base permissions
+    - default roles
+    - free base plan
+    - paid extension definitions
+
+
+Phase 2 - Backend Foundation
+----------------------------
+
+[ ] Set up Go backend structure as modular monolith.
+[ ] Add config loading.
+[ ] Add database connection pool.
+[ ] Add migration runner.
+[ ] Add request logging.
+[ ] Add panic recovery middleware.
+[ ] Add CORS middleware.
+[ ] Add JSON response/error helpers.
+[ ] Add request validation pattern.
+[ ] Add auth middleware.
+[ ] Add permission middleware.
+[ ] Add organisation scope helper.
+[ ] Add feature/extension guard helper.
+[ ] Add usage limit guard helper.
+[ ] Add service interfaces:
+    - EmailSender
+    - ObjectStore
+    - PDFRenderer
+    - AIProvider
+    - StripeClient
+[ ] Add test setup for handlers and repositories.
+
+
+Phase 3 - Auth, Organisations, Users, Roles
+-------------------------------------------
+
+[ ] Implement platform admin login.
+[ ] Implement global account login.
+[ ] Implement organisation membership selection/switching.
+[ ] Implement refresh token rotation.
+[ ] Implement logout/revoke refresh session.
+[ ] Implement GET /auth/me.
+[ ] Implement organisation CRUD for platform admins.
+[ ] Implement organisation settings read/update.
+[ ] Implement organisation membership/user CRUD inside organisation.
+[ ] Implement user invitation placeholder flow.
+[ ] Implement employee categories CRUD.
+[ ] Implement roles CRUD.
+[ ] Implement permissions list.
+[ ] Implement role-permission assignment.
+[ ] Implement membership-role assignment.
+[ ] Ensure platform admins are stored separately from normal accounts and memberships.
+[ ] Add tests for:
+    - login success/failure
+    - membership selection
+    - refresh token rotation
+    - permission denied
+    - organisation data isolation
+
+
+Phase 4 - Free Base Workspace
+-----------------------------
+
+[ ] Implement dashboard overview endpoint.
+[ ] Implement organisation-wide documents:
+    - file metadata
+    - local object storage
+    - upload
+    - download
+    - delete/soft delete
+[ ] Implement notebook documents:
+    - list
+    - create
+    - update
+    - delete/soft delete
+[ ] Implement personal notes.
+[ ] Implement shared workspace notes.
+[ ] Implement basic calendar/planner events.
+[ ] Implement settings endpoints:
+    - profile/settings
+    - saved signature
+    - billing overview placeholder
+[ ] Connect frontend pages to real endpoints for base modules.
+[ ] Add tests for base workspace modules.
+
+
+Phase 5 - Billing And Extension System
+--------------------------------------
+
+[ ] Implement free base package.
+[ ] Implement extension definitions:
+    - Contracts Pro
+    - Ticketing Pro
+    - HR Pro
+    - Internal Chat
+    - Legislation Monitor
+    - AI Assistant
+    - Multi-Site Teams future flag
+[ ] Implement organisation feature activation.
+[ ] Implement extension limits per organisation.
+[ ] Implement entitlement reconciliation:
+    - active subscriptions
+    - plan features
+    - feature defaults
+    - manual overrides
+    - trial grants
+    - custom deals
+    - organisation_features output
+    - organisation_feature_limits output
+[ ] Implement usage counter increment/read helpers.
+[ ] Implement Stripe checkout placeholder or real checkout.
+[ ] Implement Stripe portal placeholder or real portal.
+[ ] Implement Stripe webhook storage and idempotency.
+[ ] Reconcile organisation entitlements after Stripe webhook changes.
+[ ] Add backend guards:
+    - Contracts Pro required for clients/contracts.
+    - Ticketing Pro required for ticketing.
+    - HR Pro required for HR.
+    - Internal Chat required for chat.
+    - Legislation Monitor required for legislation.
+    - AI Assistant required for AI endpoints.
+[ ] Add UI gating for unavailable extensions.
+[ ] Add tests for feature access and usage limits.
+
+
+Phase 6 - Contracts Pro
+-----------------------
+
+[ ] Implement external customer/client tables and migrations.
+[ ] Implement clients API:
+    - GET /clients
+    - POST /clients
+    - GET /clients/:id
+    - PUT /clients/:id
+    - DELETE /clients/:id
+[ ] Ensure client management requires Contracts Pro.
+[ ] Implement contract template APIs:
+    - list
+    - create
+    - read
+    - update
+    - delete
+[ ] Implement industry template packs.
+[ ] Implement custom organisation templates.
+[ ] Store template dynamic fields inside contract_templates.content_json.
+[ ] Implement contract invite APIs:
+    - list
+    - create
+    - read
+    - update
+    - send
+    - revoke
+    - remind
+    - delete
+[ ] Generate public signing token.
+[ ] Store only token hash in database.
+[ ] Implement public signing read endpoint.
+[ ] Implement public signing submit endpoint.
+[ ] Save filled fields and signature image.
+[ ] Implement contract number generation.
+[ ] Implement PDF generation pipeline.
+[ ] Store generated PDF in object storage.
+[ ] Implement PDF download endpoint.
+[ ] Track invite lifecycle:
+    - draft
+    - sent
+    - viewed
+    - signed
+    - expired
+    - revoked
+[ ] Add usage limits:
+    - stored templates
+    - signed submissions
+[ ] Add tests for:
+    - token hashing
+    - invite expiration
+    - public submit
+    - organisation isolation
+    - PDF file ownership
+
+
+Phase 7 - Ticketing Pro
+-----------------------
+
+[ ] Implement ticketing tables and migrations.
+[ ] Implement ticket list with filters:
+    - status
+    - assignee
+    - priority
+    - due date
+[ ] Implement create ticket.
+[ ] Implement update ticket.
+[ ] Implement claim ticket.
+[ ] Implement complete ticket.
+[ ] Implement refuse/release ticket.
+[ ] Implement archive ticket.
+[ ] Link tickets to:
+    - users
+    - clients when Contracts Pro is active
+    - future entities through source_type/source_id
+[ ] Show tickets in planner/calendar.
+[ ] Add tests for ticket lifecycle and permissions.
+
+
+Phase 8 - Internal Chat Extension
+---------------------------------
+
+[ ] Implement chat tables and migrations:
+    - conversations
+    - participants
+    - messages
+[ ] Implement conversation list.
+[ ] Implement message list.
+[ ] Implement send message.
+[ ] Implement read/unread state.
+[ ] Implement system/bot message support.
+[ ] Keep chat internal only for first stage.
+[ ] Add future extension marker for external client/partner chat.
+[ ] Add tests for participant access control.
+
+
+Phase 9 - HR Pro
+----------------
+
+[ ] Implement HR tables and migrations:
+    - hours
+    - leaves
+    - reviews
+    - certificate requests
+[ ] Implement record hours.
+[ ] Implement list hours.
+[ ] Implement leave request.
+[ ] Implement leave approve/reject.
+[ ] Implement vacation planning link to calendar.
+[ ] Implement employee certificate request.
+[ ] Implement income certificate request.
+[ ] Implement employee reviews.
+[ ] Keep HR internal only for organisation employees.
+[ ] Keep employee categories as labels for now.
+[ ] Prepare schema so categories can later affect HR policy/reporting.
+[ ] Add tests for HR permissions and organisation isolation.
+
+
+Phase 10 - Legislation Monitor
+------------------------------
+
+[ ] Implement legislation update tables and migrations.
+[ ] Implement organisation-level legislation preferences.
+[ ] Implement legislation updates list.
+[ ] Implement preference update.
+[ ] Implement notification frequency setting:
+    - instant
+    - daily
+    - weekly
+    - never
+[ ] Implement legislation import job placeholder.
+[ ] Implement digest job placeholder.
+[ ] Add tests for organisation-level preferences.
+
+
+Phase 11 - AI Assistant
+-----------------------
+
+[ ] Implement AI request tracking table.
+[ ] Implement AI extension guard.
+[ ] Implement AI usage/credit tracking.
+[ ] Implement chat derive-ticket endpoint.
+[ ] Implement legislation summarize endpoint.
+[ ] Implement topic digest endpoint.
+[ ] Implement smart planner endpoint.
+[ ] Add AI provider interface.
+[ ] Add mock AI provider for local/dev.
+[ ] Add tests for AI gating and request logging.
+
+
+Phase 12 - Workers And Background Jobs
+--------------------------------------
+
+[ ] Add worker process or in-process scheduler.
+[ ] Add job run tracking.
+[ ] Add invite expiration job.
+[ ] Add contract reminder job.
+[ ] Add PDF generation job if async.
+[ ] Add legislation import job.
+[ ] Add legislation digest job.
+[ ] Add Stripe sync/reconciliation job.
+[ ] Add cleanup job:
+    - expired refresh sessions
+    - orphan files
+    - old temporary data
+[ ] Add manual admin trigger for jobs.
+[ ] Add tests for idempotent jobs where possible.
+
+
+Phase 13 - Admin Panel
+----------------------
+
+[ ] Implement platform admin dashboard endpoints.
+[ ] Implement organisations admin pages against real API.
+[ ] Implement users admin pages against real API.
+[ ] Implement feature/extension activation UI.
+[ ] Implement billing/subscription admin UI.
+[ ] Implement files admin UI.
+[ ] Implement contracts admin overview.
+[ ] Implement notification admin UI.
+[ ] Implement jobs admin UI.
+[ ] Implement audit/event log UI.
+[ ] Add platform admin access tests.
+
+
+Phase 14 - Frontend Integration
+-------------------------------
+
+[ ] Replace mock APIs module by module.
+[ ] Wire auth to real backend.
+[ ] Wire dashboard to real backend.
+[ ] Wire users/settings to real backend.
+[ ] Wire base documents/notebook/notes/planner.
+[ ] Wire Contracts Pro screens.
+[ ] Wire Ticketing Pro screens.
+[ ] Wire Internal Chat screens.
+[ ] Wire HR Pro screens.
+[ ] Wire Legislation Monitor screens.
+[ ] Wire AI Assistant screens.
+[ ] Add loading/error/empty states consistently.
+[ ] Add extension gating UI consistently.
+[ ] Add smoke tests for critical flows.
+
+
+Phase 15 - Future Extension Architecture
+----------------------------------------
+
+[ ] Keep future extension tables visible in DBML for architecture planning.
+[ ] Add future extension tables through later package-specific migrations, not
+    migration one.
+[ ] Add custom fields framework.
+[ ] Add custom workflows framework.
+[ ] Add automation rules framework.
+[ ] Add integration connection framework.
+[ ] Add webhook subscriptions and deliveries.
+[ ] Add Multi-Site Teams schema:
+    - teams
+    - branches
+    - locations
+    - user assignments
+[ ] Add project management schema as future module.
+[ ] Add external chat participant model as future module.
+[ ] Ensure extensions do not require rewriting core tables.
+
+
+Phase 16 - Security, Reliability, Deployment
+--------------------------------------------
+
+[ ] Add rate limiting for auth and public signing.
+[ ] Add strict organisation scoping tests.
+[ ] Add audit events for critical actions.
+[ ] Add secure cookie config for production.
+[ ] Add local-dev cookie config.
+[ ] Add object storage production adapter.
+[ ] Add email production adapter.
+[ ] Add PDF renderer production adapter.
+[ ] Add backup/restore plan.
+[ ] Add environment variable documentation.
+[ ] Add Docker Compose for local development.
+[ ] Add CI checks:
+    - backend tests
+    - frontend tests
+    - typecheck
+    - lint
+    - build
+[ ] Add deployment runbook.
+
+
+Demo Scope Recommendation
+-------------------------
+
+For the first demo, implement only:
+
+[ ] Auth.
+[ ] Organisations/users/roles.
+[ ] Free base workspace:
+    - dashboard
+    - employee categories
+    - organisation documents
+    - notebook
+    - notes
+    - planner
+[ ] Extension gating.
+[ ] Contracts Pro minimal flow:
+    - clients
+    - templates
+    - public signing
+    - submissions
+[ ] Ticketing Pro minimal flow:
+    - list
+    - create
+    - assign
+    - complete
+[ ] Admin panel minimal flow:
+    - organisations
+    - users
+    - extension activation
