@@ -17,7 +17,7 @@ export default function AdminLoginPage() {
     (location.state as { from?: { pathname: string } })?.from?.pathname ??
     "/admin/dashboard";
 
-  const [email, setEmail] = useState("admin@contapp.ro");
+  const [email, setEmail] = useState("admin@contapp.local");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [apiError, setApiError] = useState("");

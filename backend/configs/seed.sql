@@ -22,6 +22,7 @@ DECLARE
   v_workspace_notes_feature_id bigint;
   v_contracts_feature_id bigint;
   v_ticketing_feature_id bigint;
+  v_internal_chat_feature_id bigint;
   v_client_person_id bigint;
   v_client_company_id bigint;
   v_file_id bigint;
@@ -221,7 +222,8 @@ BEGIN
     ('documents', 'Documents', 'Base Workspace', 'base', 'Organisation files and document records.', '{}'::jsonb),
     ('workspace_notes', 'Workspace Notes', 'Base Workspace', 'base', 'Personal and shared workspace notes.', '{}'::jsonb),
     ('contracts', 'Contracts Pro', 'Contracts Package', 'extension', 'Templates, invites, signing submissions, and generated contract records.', '{"templates":10,"submissions_per_month":30}'::jsonb),
-    ('ticketing', 'Ticketing Pro', 'Ticketing Package', 'extension', 'Operational tickets and task pipeline.', '{"tasks_per_month":200}'::jsonb)
+    ('ticketing', 'Ticketing Pro', 'Ticketing Package', 'extension', 'Operational tickets and task pipeline.', '{"tasks_per_month":200}'::jsonb),
+    ('internal_chat', 'Internal Chat', 'Internal Chat Package', 'extension', 'Internal workspace conversations and messages.', '{}'::jsonb)
   ON CONFLICT (feature_key) DO UPDATE
   SET
     name = EXCLUDED.name,
@@ -236,13 +238,15 @@ BEGIN
   SELECT id INTO v_workspace_notes_feature_id FROM feature_definitions WHERE feature_key = 'workspace_notes';
   SELECT id INTO v_contracts_feature_id FROM feature_definitions WHERE feature_key = 'contracts';
   SELECT id INTO v_ticketing_feature_id FROM feature_definitions WHERE feature_key = 'ticketing';
+  SELECT id INTO v_internal_chat_feature_id FROM feature_definitions WHERE feature_key = 'internal_chat';
 
   INSERT INTO plan_features (subscription_plan_id, feature_definition_id, limits_json)
   VALUES
     (v_base_plan_id, v_documents_feature_id, '{}'::jsonb),
     (v_base_plan_id, v_workspace_notes_feature_id, '{}'::jsonb),
     (v_contracts_plan_id, v_contracts_feature_id, '{"templates":10,"submissions_per_month":30}'::jsonb),
-    (v_ticketing_plan_id, v_ticketing_feature_id, '{"tasks_per_month":200}'::jsonb)
+    (v_ticketing_plan_id, v_ticketing_feature_id, '{"tasks_per_month":200}'::jsonb),
+    (v_ticketing_plan_id, v_internal_chat_feature_id, '{}'::jsonb)
   ON CONFLICT (subscription_plan_id, feature_definition_id) DO UPDATE
   SET limits_json = EXCLUDED.limits_json;
 
@@ -268,7 +272,8 @@ BEGIN
     (v_org_id, v_documents_feature_id, true, 'manual'),
     (v_org_id, v_workspace_notes_feature_id, true, 'manual'),
     (v_org_id, v_contracts_feature_id, true, 'manual'),
-    (v_org_id, v_ticketing_feature_id, true, 'manual')
+    (v_org_id, v_ticketing_feature_id, true, 'manual'),
+    (v_org_id, v_internal_chat_feature_id, true, 'manual')
   ON CONFLICT (organisation_id, feature_definition_id) DO UPDATE
   SET enabled = EXCLUDED.enabled, source = EXCLUDED.source, updated_at = now();
 

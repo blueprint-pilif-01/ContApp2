@@ -6,7 +6,7 @@ export interface NotificationDTO {
   user_id: number;
   title: string;
   body: string;
-  kind: "submission" | "task" | "legislation" | "system";
+  kind: "contract" | "hr" | "submission" | "task" | "legislation" | "system";
   link?: string | null;
   read_at: string | null;
   date_added: string;

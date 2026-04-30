@@ -22,8 +22,9 @@ export interface SignatureDTO {
 
 export interface SignatureCreateRequest {
   name: string;
+  file_id?: number;
   owner_id: number;
-  image: string;
+  image?: string;
 }
 
 export const SIGNATURES_KEY = ["signatures"] as const;

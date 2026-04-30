@@ -1,0 +1,52 @@
+Possible Issues
+===============
+
+1. User session is disconnected when logging in as admin in the same browser
+--------------------------------------------------------------------------
+
+Observed behaviour:
+- A normal workspace user logs in.
+- In the same browser/profile, an admin logs in.
+- The normal user session appears disconnected or user API calls start failing.
+
+Reason:
+This is not a backend multi-user limitation. The backend can handle multiple
+users and admins at the same time.
+
+The issue is caused by the frontend/browser session model. The app currently
+stores one active access token/session in the browser. When the admin logs in,
+the admin token replaces the user token. After that, workspace requests may be
+sent with the admin token, or the frontend may no longer find the expected user
+principal.
+
+The refresh token cookie can also conflict if admin and workspace users share
+the same cookie name.
+
+Current workaround:
+- Test user and admin in separate browser profiles.
+- Or use a normal browser window for one actor and an incognito/private window
+  for the other.
+
+Recommended fix:
+- Store user and admin frontend sessions separately.
+  Example:
+  - contapp_user_access_token
+  - contapp_admin_access_token
+  - contapp_user_session
+  - contapp_admin_session
+
+- Use separate backend refresh cookies.
+  Example:
+  - contapp_user_refresh
+  - contapp_admin_refresh
+
+- Make the frontend choose the token based on app area.
+  Example:
+  - /app/* uses the workspace user token.
+  - /admin/* uses the platform admin token.
+
+Expected result after the fix:
+- A workspace user and platform admin can be active in the same browser profile
+  without overwriting each other.
+- Multiple users on different browsers/devices remain supported.
+

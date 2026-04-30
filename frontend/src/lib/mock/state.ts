@@ -39,6 +39,16 @@ export const mockTokens = {
 export const mockUserPrincipal = {
   id: 1,
   organisation_id: 1,
+  membership_id: 1,
+  workspace_name: "Demo Workspace SRL",
+  workspaces: [
+    {
+      membership_id: 1,
+      organisation_id: 1,
+      name: "Demo Workspace SRL",
+      role_label: "Owner",
+    },
+  ],
   type: "accountant",
   first_name: "Andrei",
   last_name: "Popescu",
