@@ -6,9 +6,9 @@ import { useState, type ReactNode } from "react";
 const navLinks = [
   { label: "Funcționalități", href: "#functionalitati" },
   { label: "Cum funcționează", href: "#cum-functioneaza" },
-  { label: "Securitate", href: "#securitate" },
-  { label: "FAQ", href: "#faq" },
   { label: "Prețuri", href: "#pricing" },
+  { label: "Ofertă", href: "#contact" },
+  { label: "FAQ", href: "#faq" },
 ];
 
 const ease = [0.23, 1, 0.32, 1] as const;
@@ -74,13 +74,13 @@ export function Header(): ReactNode {
           >
             <User className="w-4.5 h-4.5" />
           </a>
-          <Link to="/auth/register" className="group relative inline-flex items-center">
+          <a href="#contact" className="group relative inline-flex items-center">
             <span className="absolute right-0 inset-y-0 w-[calc(100%-1.5rem)] rounded-xl bg-accent" />
-            <span className="relative z-10 px-5 py-3 rounded-xl bg-foreground text-background text-sm font-medium whitespace-nowrap">Începe gratuit</span>
+            <span className="relative z-10 px-5 py-3 rounded-xl bg-foreground text-background text-sm font-medium whitespace-nowrap">Solicită ofertă</span>
             <span className="relative -left-px z-10 w-10 h-10 rounded-xl flex items-center justify-center text-black">
               <ArrowDownRight className="w-4 h-4 transition-transform duration-300 group-hover:-rotate-45" />
             </span>
-          </Link>
+          </a>
         </div>
 
         <button
@@ -121,13 +121,13 @@ export function Header(): ReactNode {
                   <User className="w-4 h-4" />
                   Autentificare
                 </a>
-                <Link to="/auth/register" className="group relative inline-flex items-center" onClick={closeMobile}>
+                <a href="#contact" className="group relative inline-flex items-center" onClick={closeMobile}>
                   <span className="absolute right-0 inset-y-0 w-[calc(100%-1.5rem)] rounded-2xl bg-accent" />
-                  <span className="relative z-10 px-5 py-3 rounded-2xl bg-foreground text-background text-sm font-medium">Începe gratuit</span>
+                  <span className="relative z-10 px-5 py-3 rounded-2xl bg-foreground text-background text-sm font-medium">Solicită ofertă</span>
                   <span className="relative -left-px z-10 w-10 h-10 rounded-2xl flex items-center justify-center text-foreground">
                     <ArrowDownRight className="w-4 h-4 transition-transform duration-300 group-hover:-rotate-45" />
                   </span>
-                </Link>
+                </a>
               </div>
             </div>
           </motion.div>

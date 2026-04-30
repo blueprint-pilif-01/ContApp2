@@ -3,6 +3,15 @@ import { lazy, Suspense, type ReactNode } from "react";
 import { AppShell } from "./app/shell/AppShell";
 import { RequireAuth } from "./app/auth/RequireAuth";
 import LoginPage from "./app/auth/LoginPage";
+import RegisterPage from "./app/auth/RegisterPage";
+import AdminLoginPage from "./app/auth/AdminLoginPage";
+import { AdminShell } from "./app/admin/AdminShell";
+import { RequireAdmin } from "./app/admin/RequireAdmin";
+import { RequireExtension } from "./components/ui/RequireExtension";
+import type { ExtensionKey } from "./lib/extensions";
+
+// ── Landing (public marketing site) ──────────────────────────────────────────
+import LandingPage from "./App";
 
 // ── App pages (lazy loaded) ──────────────────────────────────────────────────
 const DashboardPage        = lazy(() => import("./app/pages/DashboardPage"));
@@ -32,6 +41,19 @@ const DocumentsPage        = lazy(() => import("./app/pages/documents/DocumentsP
 const ActivityLogPage      = lazy(() => import("./app/pages/settings/ActivityLogPage"));
 const AutomationRulesPage  = lazy(() => import("./app/pages/settings/AutomationRulesPage"));
 
+// ── Admin pages (lazy) ───────────────────────────────────────────────────────
+const AdminDashboardPage    = lazy(() => import("./app/admin/pages/AdminDashboardPage"));
+const AdminOrganisationsPage = lazy(() => import("./app/admin/pages/OrganisationsPage"));
+const AdminUsersPage        = lazy(() => import("./app/admin/pages/AdminUsersPage"));
+const AdminExtensionsPage   = lazy(() => import("./app/admin/pages/ExtensionsPage"));
+const AdminBillingPage      = lazy(() => import("./app/admin/pages/AdminBillingPage"));
+const AdminFilesPage        = lazy(() => import("./app/admin/pages/AdminFilesPage"));
+const AdminContractsPage    = lazy(() => import("./app/admin/pages/AdminContractsPage"));
+const AdminNotificationsPage = lazy(() => import("./app/admin/pages/AdminNotificationsPage"));
+const AdminJobsPage         = lazy(() => import("./app/admin/pages/AdminJobsPage"));
+const AdminAuditPage        = lazy(() => import("./app/admin/pages/AdminAuditPage"));
+const AdminPlansPage        = lazy(() => import("./app/admin/pages/AdminPlansPage"));
+
 /** Full-page loading spinner while lazy chunk loads */
 function PageLoader(): ReactNode {
   return (
@@ -45,10 +67,22 @@ function S({ children }: { children: ReactNode }) {
   return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
 }
 
+/** Lazy + extension gate combo. */
+function G({ ext, children }: { ext: ExtensionKey; children: ReactNode }) {
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <RequireExtension extension={ext}>{children}</RequireExtension>
+    </Suspense>
+  );
+}
+
 export const router = createBrowserRouter([
+  // ── Public marketing ─────────────────────────────────────────────────────
+  { path: "/",              element: <LandingPage /> },
+
   // ── Auth ──────────────────────────────────────────────────────────────────
-  { path: "/",              element: <Navigate to="/app" replace /> },
   { path: "/login",         element: <LoginPage /> },
+  { path: "/auth/register", element: <RegisterPage /> },
   { path: "/public/sign/:token", element: <S><SignPage /></S> },
   { path: "/public/sign/:token/success", element: <S><SignSuccessPage /></S> },
   { path: "/portal/:token", element: <S><ClientPortalPage /></S> },
@@ -64,40 +98,40 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/app/dashboard" replace /> },
 
-      // Phase 1 — Dashboard
+      // Phase 1 — Dashboard (always free)
       { path: "dashboard", element: <S><DashboardPage /></S> },
 
-      // Phase 2 — Clients
-      { path: "clients",     element: <S><ClientsPage /></S> },
-      { path: "clients/:id", element: <S><ClientDetailPage /></S> },
+      // Phase 2 — Clients (Contracts Pro)
+      { path: "clients",     element: <G ext="contracts_pro"><ClientsPage /></G> },
+      { path: "clients/:id", element: <G ext="contracts_pro"><ClientDetailPage /></G> },
 
       // Phase 3 — Operațional
-      { path: "ticketing", element: <S><TicketingPage /></S> },
-      { path: "chat", element: <S><ChatPage /></S> },
+      { path: "ticketing", element: <G ext="ticketing_pro"><TicketingPage /></G> },
+      { path: "chat", element: <G ext="internal_chat"><ChatPage /></G> },
       { path: "calendar", element: <S><CalendarPage /></S> },
-      { path: "hr", element: <S><HrPage /></S> },
+      { path: "hr", element: <G ext="hr_pro"><HrPage /></G> },
       { path: "notebook", element: <S><NotebookPage /></S> },
-      { path: "planner-smart", element: <S><PlannerSmartPage /></S> },
+      { path: "planner-smart", element: <G ext="ai_assistant"><PlannerSmartPage /></G> },
       // Legacy redirects — notițe & workspace-notes consolidate into Notebook
       { path: "notes", element: <Navigate to="/app/notebook" replace /> },
       { path: "workspace-notes", element: <Navigate to="/app/notebook?view=shared" replace /> },
       { path: "tasks", element: <Navigate to="/app/ticketing" replace /> },
 
-      // Phase 4-5 — Contracts
-      { path: "contracts/templates",          element: <S><TemplatesPage /></S> },
-      { path: "contracts/templates/new",      element: <S><TemplateEditorPage /></S> },
-      { path: "contracts/templates/:id/edit", element: <S><TemplateEditorPage /></S> },
-      { path: "contracts/invites",            element: <S><InvitesPage /></S> },
-      { path: "contracts/submissions",        element: <S><SubmissionsPage /></S> },
-      { path: "contracts/submissions/:id",    element: <S><SubmissionDetailPage /></S> },
+      // Phase 4-5 — Contracts (Contracts Pro)
+      { path: "contracts/templates",          element: <G ext="contracts_pro"><TemplatesPage /></G> },
+      { path: "contracts/templates/new",      element: <G ext="contracts_pro"><TemplateEditorPage /></G> },
+      { path: "contracts/templates/:id/edit", element: <G ext="contracts_pro"><TemplateEditorPage /></G> },
+      { path: "contracts/invites",            element: <G ext="contracts_pro"><InvitesPage /></G> },
+      { path: "contracts/submissions",        element: <G ext="contracts_pro"><SubmissionsPage /></G> },
+      { path: "contracts/submissions/:id",    element: <G ext="contracts_pro"><SubmissionDetailPage /></G> },
 
-      // Phase 7 — Settings
+      // Phase 7 — Settings (always free)
       { path: "settings",    element: <S><SettingsPage /></S> },
       { path: "settings/users-roles", element: <S><UsersRolesPage /></S> },
       { path: "settings/users/:id", element: <S><UserProfilePage /></S> },
 
-      // Informare
-      { path: "legislation", element: <S><LegislationPage /></S> },
+      // Informare — Legislation Monitor
+      { path: "legislation", element: <G ext="legislation_monitor"><LegislationPage /></G> },
 
       // New features
       { path: "reports", element: <S><ReportsPage /></S> },
@@ -109,6 +143,31 @@ export const router = createBrowserRouter([
     ],
   },
 
+  // ── Admin console ─────────────────────────────────────────────────────────
+  { path: "/admin/login", element: <AdminLoginPage /> },
+  {
+    path: "/admin",
+    element: (
+      <RequireAdmin>
+        <AdminShell />
+      </RequireAdmin>
+    ),
+    children: [
+      { index: true, element: <Navigate to="/admin/dashboard" replace /> },
+      { path: "dashboard", element: <S><AdminDashboardPage /></S> },
+      { path: "organisations", element: <S><AdminOrganisationsPage /></S> },
+      { path: "users", element: <S><AdminUsersPage /></S> },
+      { path: "extensions", element: <S><AdminExtensionsPage /></S> },
+      { path: "plans", element: <S><AdminPlansPage /></S> },
+      { path: "billing", element: <S><AdminBillingPage /></S> },
+      { path: "files", element: <S><AdminFilesPage /></S> },
+      { path: "contracts", element: <S><AdminContractsPage /></S> },
+      { path: "notifications", element: <S><AdminNotificationsPage /></S> },
+      { path: "jobs", element: <S><AdminJobsPage /></S> },
+      { path: "audit", element: <S><AdminAuditPage /></S> },
+    ],
+  },
+
   // ── Catch-all ─────────────────────────────────────────────────────────────
-  { path: "*", element: <Navigate to="/app" replace /> },
+  { path: "*", element: <Navigate to="/" replace /> },
 ]);

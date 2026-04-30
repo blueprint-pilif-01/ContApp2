@@ -90,14 +90,14 @@ export default function TicketingPage() {
   const [newPriority, setNewPriority] = useState<TicketPriority>("medium");
 
   const listQuery = statusFilter !== "all" ? `status=${statusFilter}` : "";
-  const list = useCollectionList<Ticket>("ticketing", "/ticketing/tasks", listQuery);
-  const create = useCollectionCreate<object, Ticket>("ticketing", "/ticketing/tasks");
-  const claim = useCollectionAction<Ticket>("ticketing", (id) => `/ticketing/tasks/${id}/claim`);
-  const complete = useCollectionAction<Ticket>("ticketing", (id) => `/ticketing/tasks/${id}/complete`);
-  const refuse = useCollectionAction<Ticket>("ticketing", (id) => `/ticketing/tasks/${id}/refuse`);
+  const list = useCollectionList<Ticket>("ticketing", "/ticketing/tickets", listQuery);
+  const create = useCollectionCreate<object, Ticket>("ticketing", "/ticketing/tickets");
+  const claim = useCollectionAction<Ticket>("ticketing", (id) => `/ticketing/tickets/${id}/claim`);
+  const complete = useCollectionAction<Ticket>("ticketing", (id) => `/ticketing/tickets/${id}/complete`);
+  const refuse = useCollectionAction<Ticket>("ticketing", (id) => `/ticketing/tickets/${id}/refuse`);
   const setStatus = useMutation({
     mutationFn: ({ id, status }: { id: number; status: TicketStatus }) =>
-      api.put<Ticket>(`/ticketing/tasks/${id}`, { status }),
+      api.put<Ticket>(`/ticketing/tickets/${id}`, { status }),
     onSuccess: () => list.refetch(),
   });
 

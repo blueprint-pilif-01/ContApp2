@@ -95,7 +95,7 @@ export function Hero(): ReactNode {
             variants={fadeInUp}
             transition={{ duration: 0.8, ease }}
           >
-            Contracte, clienți, termene
+            Pentru contabili, HR, agenții și SME-uri
           </motion.div>
 
           <h1 className="text-8xl max-[850px]:text-5xl font-medium tracking-tight leading-[1.1] mb-6 text-foreground">
@@ -104,14 +104,14 @@ export function Hero(): ReactNode {
               variants={fadeInUp}
               transition={{ duration: 0.8, ease }}
             >
-              Hub-ul de lucru
+              Workspace-ul
             </motion.span>
             <motion.span
               className="block"
               variants={fadeInUp}
               transition={{ duration: 0.8, ease }}
             >
-              pentru <span className="italic font-serif text-accent">contabili.</span>
+              pentru <span className="italic font-serif text-accent">afacerea ta.</span>
             </motion.span>
           </h1>
 
@@ -120,7 +120,8 @@ export function Hero(): ReactNode {
             variants={fadeInUp}
             transition={{ duration: 0.8, ease }}
           >
-            Contracte, clienți, facturi, termene și rapoarte. Semnare prin link, alerte automate, export rapid.
+            Pachet de bază gratuit + extensii la alegere: contracte, ticketing, HR,
+            chat intern, legislație, AI. Plătești doar ce folosești.
           </motion.p>
 
           <motion.ul
@@ -128,9 +129,9 @@ export function Hero(): ReactNode {
             variants={fadeInUp}
             transition={{ duration: 0.8, ease }}
           >
-            <li className="flex items-start gap-2"><Check className="w-4 h-4 text-accent mt-0.5 shrink-0" strokeWidth={2.5} /> Generezi contracte și colectezi semnături prin link public.</li>
-            <li className="flex items-start gap-2"><Check className="w-4 h-4 text-accent mt-0.5 shrink-0" strokeWidth={2.5} /> Nu ratezi termene: alerte în aplicație și email.</li>
-            <li className="flex items-start gap-2"><Check className="w-4 h-4 text-accent mt-0.5 shrink-0" strokeWidth={2.5} /> Ai vizibilitate pe clienți: dosar, documente, istoricul activității.</li>
+            <li className="flex items-start gap-2"><Check className="w-4 h-4 text-accent mt-0.5 shrink-0" strokeWidth={2.5} /> Construiești pachetul tău: alegi exact extensiile de care ai nevoie.</li>
+            <li className="flex items-start gap-2"><Check className="w-4 h-4 text-accent mt-0.5 shrink-0" strokeWidth={2.5} /> Pachet de bază gratuit pentru până la 10 angajați (dashboard, notebook, planner, documente).</li>
+            <li className="flex items-start gap-2"><Check className="w-4 h-4 text-accent mt-0.5 shrink-0" strokeWidth={2.5} /> Scalezi pe benzi de angajați. Activezi sau dezactivezi extensii oricând.</li>
           </motion.ul>
 
           <motion.div
@@ -138,19 +139,19 @@ export function Hero(): ReactNode {
             variants={fadeInScale}
             transition={{ duration: 0.8, ease }}
           >
-            <Link
-              to="/auth/register"
+            <a
+              href="#pricing"
               className="group relative inline-flex items-center max-[850px]:w-full"
             >
               <span className="absolute right-0 inset-y-0 w-[calc(100%-1.5rem)] max-[850px]:w-full rounded-xl bg-accent" />
-              <span className="relative z-10 px-5 py-3 rounded-xl bg-foreground text-background text-sm font-medium whitespace-nowrap max-[850px]:flex-1">Începe gratuit</span>
+              <span className="relative z-10 px-5 py-3 rounded-xl bg-foreground text-background text-sm font-medium whitespace-nowrap max-[850px]:flex-1">Configurează pachetul</span>
               <span className="relative -left-px z-10 w-10 h-10 rounded-xl flex items-center justify-center text-black">
                 <ArrowDownRight className="w-4 h-4 transition-transform duration-300 group-hover:-rotate-45" />
               </span>
-            </Link>
-            <a href="#pricing" className="text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors max-[850px]:text-center">
-              Vezi planurile →
             </a>
+            <Link to="/login" className="text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors max-[850px]:text-center">
+              Am deja cont →
+            </Link>
           </motion.div>
 
           <motion.p
@@ -158,7 +159,7 @@ export function Hero(): ReactNode {
             variants={fadeInUp}
             transition={{ duration: 0.8, ease }}
           >
-            Fără card pentru Free. · Upgrade sau downgrade oricând.
+            Pachet de bază gratuit, fără card. · Plătești extensii doar dacă le activezi.
           </motion.p>
         </motion.div>
       </div>

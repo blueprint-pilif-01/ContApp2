@@ -9,6 +9,8 @@ export function AISparkleButton({
   onClick,
   size = "sm",
   className,
+  disabled,
+  title,
 }: {
   label: string;
   loadingLabel?: string;
@@ -16,6 +18,8 @@ export function AISparkleButton({
   onClick?: () => void;
   size?: ButtonSize;
   className?: string;
+  disabled?: boolean;
+  title?: string;
 }) {
   return (
     <Button
@@ -23,8 +27,11 @@ export function AISparkleButton({
       variant="outline"
       size={size}
       onClick={onClick}
+      disabled={disabled}
+      title={title}
       className={cn(
         "relative overflow-hidden border-transparent text-white ai-sparkle-btn",
+        disabled && "opacity-60 cursor-not-allowed",
         className
       )}
     >

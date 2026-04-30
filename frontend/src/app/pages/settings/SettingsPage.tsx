@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
   Bell,
@@ -7,6 +7,7 @@ import {
   ChevronRight,
   CreditCard,
   KeyRound,
+  Lock,
   LogOut,
   Mail,
   PenTool,
@@ -19,6 +20,8 @@ import {
 import { logout, usePrincipal } from "../../../hooks/useMe";
 import { useUpdateTeamUser } from "../../../hooks/useTeamUsers";
 import { useCreateSignature } from "../../../hooks/useSignatures";
+import { useExtensions } from "../../../hooks/useExtensions";
+import { useSubscription } from "../../../hooks/useSubscription";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Avatar } from "../../../components/ui/Avatar";
@@ -27,6 +30,12 @@ import { PageHeader } from "../../../components/ui/PageHeader";
 import { SignatureCanvas } from "../../../components/SignatureCanvas";
 import { useToast } from "../../../components/ui/Toast";
 import { isApiError } from "../../../lib/api";
+import {
+  EXTENSIONS,
+  EXTENSION_KEYS,
+  extensionLabelOneLine,
+  type ExtensionKey,
+} from "../../../lib/extensions";
 import { cn } from "../../../lib/utils";
 
 type SectionId = "profile" | "security" | "subscription" | "signature" | "team";
@@ -40,8 +49,25 @@ const SECTIONS: { id: SectionId; label: string; icon: typeof User; description: 
 ];
 
 export default function SettingsPage() {
-  const [active, setActive] = useState<SectionId>("profile");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const initial: SectionId =
+    tabParam === "subscription" || tabParam === "security" ||
+    tabParam === "signature" || tabParam === "team" || tabParam === "profile"
+      ? (tabParam as SectionId)
+      : "profile";
+  const [active, setActive] = useState<SectionId>(initial);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (active === "profile") next.delete("tab");
+    else next.set("tab", active);
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
 
   return (
     <div className="space-y-6">
@@ -333,14 +359,34 @@ function SecuritySection() {
 /* ───────── Subscription ───────── */
 
 function SubscriptionSection() {
-  const plan = "Pro";
-  const periodEnd = new Date(Date.now() + 25 * 86400000);
-  const usage = [
-    { label: "Șabloane", used: 4, limit: 10 },
-    { label: "Semnări (luna)", used: 47, limit: 100 },
-    { label: "Clienți", used: 10, limit: 50 },
-    { label: "Stocare", used: 320, limit: 2048, unit: "MB" },
-  ];
+  const { data: sub } = useSubscription();
+  const ext = useExtensions();
+  const toast = useToast();
+
+  const plan = sub?.plan ?? "—";
+  const periodEnd = sub?.periodEnd ? new Date(sub.periodEnd) : null;
+
+  const usageRows = sub
+    ? [
+        { label: "Șabloane", used: sub.usage.templates, limit: sub.limits.templates },
+        { label: "Semnări (luna)", used: sub.usage.signings_this_month, limit: sub.limits.signings_per_month },
+        { label: "Clienți", used: sub.usage.clients, limit: sub.limits.clients },
+        { label: "Stocare", used: sub.usage.storage_mb, limit: sub.limits.storage_mb, unit: "MB" },
+      ]
+    : [];
+
+  const handleToggle = async (key: ExtensionKey, next: boolean) => {
+    try {
+      await ext.toggle(key, next);
+      toast.success(
+        next
+          ? `${extensionLabelOneLine(key)} a fost activat.`
+          : `${extensionLabelOneLine(key)} a fost dezactivat.`
+      );
+    } catch (e) {
+      toast.error(isApiError(e) ? e.message : "Nu s-a putut actualiza extensia.");
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -348,63 +394,117 @@ function SubscriptionSection() {
         <div>
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Plan curent</p>
           <h2 className="text-2xl font-semibold mt-1">{plan}</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Reînnoire pe {periodEnd.toLocaleDateString("ro-RO", { day: "numeric", month: "long", year: "numeric" })}
-          </p>
+          {periodEnd && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Reînnoire pe {periodEnd.toLocaleDateString("ro-RO", { day: "numeric", month: "long", year: "numeric" })}
+            </p>
+          )}
         </div>
         <Button variant="outline" size="sm">
           <ArrowRight className="w-4 h-4" /> Schimbă plan
         </Button>
       </div>
 
-      <div className="rounded-2xl border border-border bg-frame p-5">
-        <h2 className="text-sm font-semibold tracking-tight mb-4">Utilizare luna curentă</h2>
-        <div className="space-y-4">
-          {usage.map((u) => {
-            const pct = Math.min((u.used / u.limit) * 100, 100);
-            return (
-              <div key={u.label}>
-                <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="text-foreground">{u.label}</span>
-                  <span className="text-muted-foreground">
-                    {u.used}
-                    {u.unit ? ` ${u.unit}` : ""} / {u.limit}
-                    {u.unit ? ` ${u.unit}` : ""}
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full bg-foreground/8 overflow-hidden">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all",
-                      pct > 90 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-[color:var(--accent)]"
+      {usageRows.length > 0 && (
+        <div className="rounded-2xl border border-border bg-frame p-5">
+          <h2 className="text-sm font-semibold tracking-tight mb-4">Utilizare luna curentă</h2>
+          <div className="space-y-4">
+            {usageRows.map((u) => {
+              const isUnlimited = u.limit === null;
+              const pct = isUnlimited ? 0 : Math.min((u.used / (u.limit as number)) * 100, 100);
+              return (
+                <div key={u.label}>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span className="text-foreground">{u.label}</span>
+                    <span className="text-muted-foreground">
+                      {u.used}
+                      {u.unit ? ` ${u.unit}` : ""} / {isUnlimited ? "∞" : `${u.limit}${u.unit ? ` ${u.unit}` : ""}`}
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-foreground/8 overflow-hidden">
+                    {!isUnlimited && (
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          pct > 90 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-[color:var(--accent)]"
+                        )}
+                        style={{ width: `${pct}%` }}
+                      />
                     )}
-                    style={{ width: `${pct}%` }}
-                  />
+                  </div>
                 </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-border bg-frame p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight">Extensii plătite</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Mod dev — toggle local pentru a previzualiza UI-ul de gating. În producție
+              acest panou afișează doar status-ul, iar activarea trece prin Stripe.
+            </p>
+          </div>
+          <Badge variant="warning" className="shrink-0 inline-flex items-center gap-1">
+            <Lock className="w-3 h-3" /> dev
+          </Badge>
+        </div>
+        <div className="space-y-2">
+          {EXTENSION_KEYS.map((key) => {
+            const meta = EXTENSIONS[key];
+            const Icon = meta.icon;
+            const enabled = ext.canUse(key);
+            const disabled = !meta.available || ext.isToggling || !ext.isReady;
+            return (
+              <div
+                key={key}
+                className="flex items-start gap-3 p-3 rounded-xl border border-border"
+              >
+                <span className="w-8 h-8 rounded-lg bg-foreground/8 flex items-center justify-center shrink-0">
+                  <Icon className="w-4 h-4" />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-start gap-2">
+                    <span className="text-sm font-semibold whitespace-pre-line">
+                      {meta.label}
+                    </span>
+                    {!meta.available && (
+                      <Badge variant="neutral" className="text-[10px] shrink-0">
+                        roadmap
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{meta.description}</p>
+                  {meta.tierHint && (
+                    <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                      {meta.tierHint}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !disabled && handleToggle(key, !enabled)}
+                  disabled={disabled}
+                  aria-label={`Comută ${extensionLabelOneLine(key)}`}
+                  className={cn(
+                    "w-10 h-5 rounded-full transition-colors relative shrink-0 mt-1",
+                    enabled ? "bg-[color:var(--accent)]" : "bg-foreground/15",
+                    disabled && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform",
+                      enabled && "translate-x-5"
+                    )}
+                  />
+                </button>
               </div>
             );
           })}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-border bg-frame p-5 space-y-3">
-        <h2 className="text-sm font-semibold tracking-tight">Funcționalități incluse</h2>
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          {[
-            "Clienți nelimitați",
-            "Contracte cu semnătură",
-            "Dosar digital",
-            "Rapoarte și export CSV",
-            "Legislație actualizată",
-            "Notificări automate",
-            "Notebook & notițe",
-            "Planner Smart AI",
-          ].map((feat) => (
-            <span key={feat} className="inline-flex items-center gap-2 text-foreground">
-              <Check className="w-4 h-4 text-[color:var(--accent)]" />
-              {feat}
-            </span>
-          ))}
         </div>
       </div>
     </div>

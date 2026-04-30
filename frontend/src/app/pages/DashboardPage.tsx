@@ -22,6 +22,8 @@ import { StatCard } from "../../components/ui/StatCard";
 import { SectionCard } from "../../components/ui/SectionCard";
 import { Badge, StatusBadge } from "../../components/ui/Badge";
 import { Avatar } from "../../components/ui/Avatar";
+import { Skeleton, SkeletonList } from "../../components/ui/Skeleton";
+import { ErrorState } from "../../components/ui/EmptyState";
 import { useCollectionItem } from "../../hooks/useCollection";
 import { useMe } from "../../hooks/useMe";
 import { fmtRelative, fmtDate, cn } from "../../lib/utils";
@@ -170,10 +172,27 @@ export default function DashboardPage() {
   );
   const firstName = me?.first_name ?? "";
   const d = overview.data;
+  const isLoading = overview.isLoading && !d;
+  const isError = overview.isError && !d;
   const pipeline = d?.contract_pipeline;
   const pipelineTotal = pipeline
     ? pipeline.draft + pipeline.sent + pipeline.viewed + pipeline.signed + pipeline.expired
     : 0;
+
+  if (isError) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title={`${greeting()}${firstName ? `, ${firstName}` : ""}.`}
+          description="Privire de ansamblu asupra cabinetului tău."
+        />
+        <ErrorState
+          message="Nu am putut încărca dashboard-ul."
+          onRetry={() => overview.refetch()}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -194,6 +213,14 @@ export default function DashboardPage() {
       />
 
       {/* ── KPI cards ───────────────────────────────────────────────────── */}
+      {isLoading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <Skeleton className="h-28" />
+          <Skeleton className="h-28" />
+          <Skeleton className="h-28" />
+          <Skeleton className="h-28" />
+        </div>
+      ) : (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           icon={Users}
@@ -238,9 +265,19 @@ export default function DashboardPage() {
           }
         />
       </div>
+      )}
+
+      {/* ── Loading state for the main grid ─────────────────────────────── */}
+      {isLoading && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <SectionCard title="Pipeline contracte"><SkeletonList rows={3} /></SectionCard>
+          <SectionCard title="Activitate recentă"><SkeletonList rows={3} /></SectionCard>
+          <SectionCard title="Următoarele 7 zile"><SkeletonList rows={3} /></SectionCard>
+        </div>
+      )}
 
       {/* ── Urgent items banner ─────────────────────────────────────────── */}
-      {(d?.urgent_items ?? []).length > 0 && (
+      {!isLoading && (d?.urgent_items ?? []).length > 0 && (
         <SectionCard
           icon={AlertTriangle}
           title="Necesită atenție acum"
@@ -273,6 +310,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── Main grid: pipeline + activity + calendar ───────────────────── */}
+      {!isLoading && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* ── Contract pipeline ─────────────────────────────────────────── */}
@@ -495,8 +533,10 @@ export default function DashboardPage() {
           </Button>
         </SectionCard>
       </div>
+      )}
 
       {/* ── Bottom row: team workload + plan usage ──────────────────────── */}
+      {!isLoading && (
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
 
         {/* ── Team workload ─────────────────────────────────────────────── */}
@@ -636,6 +676,7 @@ export default function DashboardPage() {
           )}
         </SectionCard>
       </div>
+      )}
     </div>
   );
 }

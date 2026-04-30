@@ -1,5 +1,4 @@
 import { motion } from "motion/react";
-import { Link } from "react-router-dom";
 import { ArrowRight, FileText, Smartphone, FolderOpen, Clock, AlertTriangle, Search } from "lucide-react";
 import type { ReactNode, ElementType } from "react";
 
@@ -8,7 +7,7 @@ const ease = [0.23, 1, 0.32, 1] as const;
 const pains: { icon: ElementType; title: string; desc: string }[] = [
   {
     icon: FileText,
-    title: "Contracte în Word",
+    title: "Contracte și formulare în Word",
     desc: "Copiezi același șablon de fiecare dată, completezi manual, salvezi PDF, trimiți pe email.",
   },
   {
@@ -18,23 +17,23 @@ const pains: { icon: ElementType; title: string; desc: string }[] = [
   },
   {
     icon: FolderOpen,
-    title: "Dosare pe desktop",
-    desc: "Foldere cu nume ca «Contract_FINAL_v3_ok.docx» împrăștiate între Drive, email și calculator.",
+    title: "Dosare împrăștiate",
+    desc: "Foldere cu nume ca «Contract_FINAL_v3_ok.docx» risipite între Drive, email, calculator și colegi.",
   },
   {
     icon: Clock,
-    title: "Follow-up manual",
-    desc: "Suni sau trimiți email fiecărui client în parte ca să afli dacă a semnat sau nu.",
+    title: "Cereri de concediu pe email",
+    desc: "Cereri pierdute în inbox, aprobări manuale, planificarea vacanțelor făcută într-un Excel partajat.",
   },
   {
     icon: AlertTriangle,
     title: "Legislație descoperită târziu",
-    desc: "Afli de modificări fiscale de la colegi sau clienți, uneori după ce termenul a trecut.",
+    desc: "Afli de modificări fiscale, de muncă sau GDPR de la colegi sau clienți — uneori după ce termenul a trecut.",
   },
   {
     icon: Search,
-    title: "Căutare prin arhive",
-    desc: "Pierzi minute bune căutând un contract vechi prin emailuri, foldere și bibliorafturi.",
+    title: "Tickete pe post-it-uri și chat",
+    desc: "Sarcini pierdute în Slack, WhatsApp sau pe hârtie. Nu vezi cine ce face și ce este urgent.",
   },
 ];
 
@@ -58,8 +57,9 @@ export function Problem(): ReactNode {
             Sună cunoscut?
           </h2>
           <p className="text-base text-muted-foreground leading-relaxed">
-            Majoritatea contabililor lucrează cu un mix de Word, email, WhatsApp și foldere haotice.
-            Funcționează — dar consumă ore întregi de muncă care s-ar putea face în minute.
+            Majoritatea echipelor — contabili, agenții, HR, birouri — lucrează cu un
+            mix de Word, email, WhatsApp și foldere haotice. Funcționează — dar
+            consumă ore întregi de muncă care s-ar putea face în minute.
           </p>
         </motion.div>
 
@@ -101,17 +101,18 @@ export function Problem(): ReactNode {
               ContApp rezolvă tot asta — dintr-un singur loc.
             </p>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Contracte, semnături, dosare, legislație. Fără haos.
+              Clienți, contracte, tickete, HR, chat intern, legislație. Pachet
+              de bază gratuit — adaugi extensiile de care ai nevoie.
             </p>
           </div>
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="shrink-0">
-            <Link
-              to="/auth/register"
+            <a
+              href="#pricing"
               className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-black hover:bg-accent/90 transition-colors whitespace-nowrap"
             >
-              Încearcă gratuit
+              Configurează pachetul
               <ArrowRight className="w-4 h-4" />
-            </Link>
+            </a>
           </motion.div>
         </motion.div>
 

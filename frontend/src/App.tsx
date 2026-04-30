@@ -1,4 +1,5 @@
 import { BlurInHeadline } from "@/components/blur-in-headline";
+import { ContactOffer } from "@/components/contact-offer";
 import { Problem } from "@/components/problem";
 import { Stats } from "@/components/stats";
 import { FAQ } from "@/components/faq";
@@ -47,6 +48,7 @@ export default function LandingPage(): ReactNode {
         {/* <Testimonials /> */}
         <HowItWorks />
         <Pricing />
+        <ContactOffer />
         <FAQ />
         <Footer />
       </main>
