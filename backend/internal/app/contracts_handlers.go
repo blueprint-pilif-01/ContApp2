@@ -31,6 +31,16 @@ type contractInviteRequest struct {
 	DateModified string `json:"date_modified"`
 }
 
+type contractSubmissionRequest struct {
+	models.ContractSubmission
+	UserID         int64   `json:"user_id"`
+	Remarks        string  `json:"remarks"`
+	ExpirationDate string  `json:"expiration_date"`
+	DateAdded      string  `json:"date_added"`
+	DateModified   string  `json:"date_modified"`
+	SignatureImage *string `json:"signature_image"`
+}
+
 func (a *App) listContractTemplates(w http.ResponseWriter, r *http.Request) {
 	claims, ok := accountClaims(w, r)
 	if !ok {
@@ -281,12 +291,38 @@ func (a *App) createContractSubmission(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var item models.ContractSubmission
-	if err := httpx.DecodeJSON(r, &item); err != nil {
+	var input contractSubmissionRequest
+	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	item := input.ContractSubmission
 	item.OrganisationID = claims.OrganisationID
+	if item.FilledFields == nil {
+		item.FilledFields = json.RawMessage(`{}`)
+	}
+	if item.Status == "" {
+		item.Status = "signed"
+	}
+	if item.SignedAt == nil && item.Status == "signed" {
+		now := time.Now().UTC()
+		item.SignedAt = &now
+	}
+	if item.TemplateID == 0 && item.InviteID != 0 {
+		invite, err := a.Repo.GetContractInvite(r.Context(), claims.OrganisationID, item.InviteID)
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, "invite not found")
+			return
+		}
+		item.TemplateID = invite.TemplateID
+		if item.ClientID == 0 {
+			item.ClientID = invite.ClientID
+		}
+	}
+	if item.InviteID == 0 || item.TemplateID == 0 || item.ClientID == 0 {
+		httpx.Error(w, http.StatusBadRequest, "invite_id, template_id and client_id are required")
+		return
+	}
 	if err := a.Repo.CreateContractSubmission(r.Context(), &item); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "could not create contract submission")
 		return
