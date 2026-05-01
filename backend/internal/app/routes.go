@@ -180,6 +180,25 @@ func (a *App) mountProtectedRoutes(r chi.Router) {
 	r.With(a.requireFeature(FeatureInternalChat), a.requirePermission(PermMembersRead)).Get("/chat/conversations", a.listChatConversations)
 	r.With(a.requireFeature(FeatureInternalChat), a.requirePermission(PermMembersRead)).Get("/chat/conversations/{id}/messages", a.listChatMessages)
 	r.With(a.requireFeature(FeatureInternalChat), a.requirePermission(PermMembersWrite)).Post("/chat/conversations/{id}/messages", a.createChatMessage)
+	r.With(a.requireFeature(FeatureInternalChat), a.requireFeature(FeatureTicketing), a.requirePermission(PermTicketingWrite)).Post("/chat/derive-ticket", a.deriveTicketFromChat)
+	r.With(a.requireFeature(FeatureInternalChat), a.requirePermission(PermMembersRead)).Get("/message-templates", a.listMessageTemplates)
+	r.With(a.requireFeature(FeatureInternalChat), a.requirePermission(PermMembersWrite)).Post("/message-templates", a.createMessageTemplate)
+	r.With(a.requireFeature(FeatureInternalChat), a.requirePermission(PermMembersDelete)).Delete("/message-templates/{id}", a.deleteMessageTemplate)
+
+	r.With(a.requireFeature(FeatureHR), a.requirePermission(PermMembersRead)).Get("/hr/hours", a.listHRHours)
+	r.With(a.requireFeature(FeatureHR), a.requirePermission(PermMembersWrite)).Post("/hr/hours", a.createHRHour)
+	r.With(a.requireFeature(FeatureHR), a.requirePermission(PermMembersRead)).Get("/hr/leaves", a.listHRLeaves)
+	r.With(a.requireFeature(FeatureHR), a.requirePermission(PermMembersWrite)).Post("/hr/leaves", a.createHRLeave)
+	r.With(a.requireFeature(FeatureHR), a.requirePermission(PermMembersRead)).Get("/hr/reviews", a.listHRReviews)
+	r.With(a.requireFeature(FeatureHR), a.requirePermission(PermMembersWrite)).Post("/hr/reviews", a.createHRReview)
+	r.With(a.requireFeature(FeatureHR), a.requirePermission(PermMembersWrite)).Post("/hr/certificates", a.createHRCertificateRequest)
+
+	r.With(a.requirePermission(PermMembersRead)).Get("/automation-rules", a.listAutomationRules)
+	r.With(a.requirePermission(PermMembersWrite)).Post("/automation-rules", a.createAutomationRule)
+	r.With(a.requirePermission(PermMembersWrite)).Put("/automation-rules/{id}", a.updateAutomationRule)
+	r.With(a.requirePermission(PermMembersDelete)).Delete("/automation-rules/{id}", a.deleteAutomationRule)
+
+	r.With(a.requirePermission(PermMembersRead)).Get("/reports/overview", a.getReportsOverview)
 
 	r.With(a.requireFeature(FeatureTicketing), a.requirePermission(PermTicketingRead)).Get("/ticketing/tasks", a.listTicketingTasks)
 	r.With(a.requireFeature(FeatureTicketing), a.requirePermission(PermTicketingWrite)).Post("/ticketing/tasks", a.createTicketingTask)

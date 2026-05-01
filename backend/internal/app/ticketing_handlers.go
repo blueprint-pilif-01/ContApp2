@@ -218,6 +218,11 @@ func frontendTicketPriority(priority string) string {
 }
 
 func ticketingTaskResponse(task models.TicketingTask) map[string]any {
+	dueAt := task.DueAt
+	if dueAt == nil {
+		fallback := task.CreatedAt.Add(24 * time.Hour)
+		dueAt = &fallback
+	}
 	return map[string]any{
 		"id":               task.ID,
 		"organisation_id":  task.OrganisationID,
@@ -233,8 +238,8 @@ func ticketingTaskResponse(task models.TicketingTask) map[string]any {
 		"source_type":      task.SourceType,
 		"source":           task.SourceType,
 		"source_id":        task.SourceID,
-		"due_at":           task.DueAt,
-		"due_date":         task.DueAt,
+		"due_at":           dueAt,
+		"due_date":         dueAt,
 		"claimed_at":       task.ClaimedAt,
 		"completed_at":     task.CompletedAt,
 		"refused_at":       task.RefusedAt,

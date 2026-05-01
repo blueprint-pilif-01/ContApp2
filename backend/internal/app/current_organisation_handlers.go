@@ -99,7 +99,7 @@ func frontendExtensionsFromFeatures(features []models.OrganisationFeature) map[s
 	return map[string]bool{
 		"contracts_pro":       featureEnabled(features, FeatureContracts, now),
 		"ticketing_pro":       featureEnabled(features, FeatureTicketing, now),
-		"hr_pro":              featureEnabled(features, "hr", now),
+		"hr_pro":              featureEnabled(features, FeatureHR, now),
 		"internal_chat":       featureEnabled(features, FeatureInternalChat, now),
 		"legislation_monitor": featureEnabled(features, "legislation_monitor", now),
 		"ai_assistant":        featureEnabled(features, "ai_assistant", now),

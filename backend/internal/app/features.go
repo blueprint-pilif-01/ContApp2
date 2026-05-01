@@ -5,4 +5,5 @@ const (
 	FeatureContracts    = "contracts"
 	FeatureTicketing    = "ticketing"
 	FeatureInternalChat = "internal_chat"
+	FeatureHR           = "hr"
 )
