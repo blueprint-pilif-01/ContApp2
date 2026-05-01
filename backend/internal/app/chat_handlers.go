@@ -1,9 +1,11 @@
 package app
 
 import (
+	"backend/internal/models"
 	"backend/internal/platform/httpx"
 	"database/sql"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -29,6 +31,10 @@ type chatMessageResponse struct {
 
 type chatMessageRequest struct {
 	Content string `json:"content"`
+}
+
+type deriveTicketRequest struct {
+	Message string `json:"message"`
 }
 
 func (a *App) listChatConversations(w http.ResponseWriter, r *http.Request) {
@@ -208,6 +214,49 @@ func (a *App) createChatMessage(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, msg)
 }
 
+func (a *App) deriveTicketFromChat(w http.ResponseWriter, r *http.Request) {
+	claims, ok := accountClaims(w, r)
+	if !ok {
+		return
+	}
+	var input deriveTicketRequest
+	if err := httpx.DecodeJSON(r, &input); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	message := strings.TrimSpace(input.Message)
+	if message == "" {
+		httpx.Error(w, http.StatusBadRequest, "message is required")
+		return
+	}
+
+	title := deriveTicketTitle(message)
+	sourceType := "chat"
+	dueAt := time.Now().UTC().Add(3 * 24 * time.Hour)
+	task := models.TicketingTask{
+		OrganisationID: claims.OrganisationID,
+		CreatedByID:    claims.MembershipID,
+		AssigneeUserID: &claims.MembershipID,
+		Title:          title,
+		Description:    &message,
+		Status:         "todo",
+		Priority:       "normal",
+		SourceType:     &sourceType,
+		DueAt:          &dueAt,
+	}
+	if err := a.Repo.CreateTicketingTask(r.Context(), &task); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "could not create ticket from chat")
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, map[string]any{
+		"ticket": map[string]any{
+			"id":    task.ID,
+			"title": task.Title,
+		},
+		"confirmation": "Am creat ticketul #" + strconv.FormatInt(task.ID, 10) + ".",
+	})
+}
+
 func (a *App) ensureDefaultChatConversation(r *http.Request, organisationID, membershipID int64) (int64, error) {
 	var id int64
 	err := a.Repo.Connection().QueryRowContext(r.Context(), `
@@ -305,4 +354,24 @@ func scanChatMessage(row chatMessageScanner) (chatMessageResponse, error) {
 	}
 	msg.CreatedAt = createdAt.Format(time.RFC3339)
 	return msg, nil
+}
+
+func deriveTicketTitle(message string) string {
+	title := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(message), "@bot"))
+	title = strings.TrimSpace(strings.TrimPrefix(title, ":"))
+	if title == "" {
+		return "Ticket din chat"
+	}
+	for _, sep := range []string{".", "\n", "!", "?"} {
+		if idx := strings.Index(title, sep); idx > 0 {
+			title = strings.TrimSpace(title[:idx])
+		}
+	}
+	if len(title) > 80 {
+		title = strings.TrimSpace(title[:80])
+	}
+	if title == "" {
+		return "Ticket din chat"
+	}
+	return title
 }

@@ -5,7 +5,7 @@ import { Button } from "../../../components/ui/Button";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { SectionCard } from "../../../components/ui/SectionCard";
 import { StatCard } from "../../../components/ui/StatCard";
-import { useCollectionList } from "../../../hooks/useCollection";
+import { useCollectionItem } from "../../../hooks/useCollection";
 
 type ReportData = {
   clients_trend: Array<{ month: string; total: number; new: number }>;
@@ -63,10 +63,10 @@ function LineChartSVG({ data, lines }: { data: Array<Record<string, number | str
 }
 
 export default function ReportsPage() {
-  const report = useCollectionList<ReportData>("reports", "/reports/overview");
+  const report = useCollectionItem<ReportData>("reports", "/reports/overview");
   const [period, setPeriod] = useState<"30d" | "90d" | "12m">("12m");
 
-  const data: ReportData = (report.data as unknown as ReportData) ?? {
+  const data: ReportData = report.data ?? {
     clients_trend: [],
     tasks_trend: [],
     contracts_trend: [],
