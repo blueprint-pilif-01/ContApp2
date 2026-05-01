@@ -196,6 +196,7 @@ export interface TemplateFieldCreateRequest {
 }
 
 export interface TemplateFieldDTO {
+  id?: number;
   template_id: number;
   data: string;
   date_modified: string;

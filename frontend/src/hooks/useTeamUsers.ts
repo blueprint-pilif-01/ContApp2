@@ -32,10 +32,18 @@ export interface TeamUserUpsert {
 
 export const TEAM_USERS_KEY = ["team-users"] as const;
 
+function unwrapTeamUsers(value: TeamUserDTO[] | { users?: TeamUserDTO[]; data?: TeamUserDTO[] }): TeamUserDTO[] {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value.users)) return value.users;
+  if (Array.isArray(value.data)) return value.data;
+  return [];
+}
+
 export function useTeamUsers() {
   return useQuery<TeamUserDTO[]>({
     queryKey: [...TEAM_USERS_KEY, "list"],
-    queryFn: () => api.get<TeamUserDTO[]>("/settings/users"),
+    queryFn: async () =>
+      unwrapTeamUsers(await api.get<TeamUserDTO[] | { users?: TeamUserDTO[]; data?: TeamUserDTO[] }>("/settings/users")),
     staleTime: 30_000,
   });
 }

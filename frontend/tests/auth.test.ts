@@ -16,21 +16,30 @@ describe("loginUser", () => {
     const fetchFn = vi.fn().mockResolvedValue(
       jsonResponse(
         {
-          token: { access_token: "u.tok", refresh_token: "u.ref" },
-          user: {
+          access_token: "u.tok",
+          token_type: "Bearer",
+          account: {
             id: 5,
-            organisation_id: 9,
-            type: "accountant",
             first_name: "Ana",
             last_name: "Ion",
             email: "ana@x.ro",
-            phone: "+40",
-            status: "active",
-            role: "accountant",
-            permissions: ["notes:manage"],
           },
+          workspace: {
+            membership_id: 15,
+            organisation_id: 9,
+            name: "Ana Workspace",
+            role_label: "Owner",
+          },
+          workspaces: [
+            {
+              membership_id: 15,
+              organisation_id: 9,
+              name: "Ana Workspace",
+              role_label: "Owner",
+            },
+          ],
         },
-        202
+        200
       )
     );
     globalThis.fetch = fetchFn as unknown as typeof fetch;
@@ -38,7 +47,10 @@ describe("loginUser", () => {
     const principal = await loginUser({ email: "ana@x.ro", password: "p" });
     expect(principal.kind).toBe("user");
     expect(principal.id).toBe(5);
-    expect(principal.permissions).toContain("notes:manage");
+    expect(principal.organisation_id).toBe(9);
+    expect(principal.membership_id).toBe(15);
+    expect(principal.workspace_name).toBe("Ana Workspace");
+    expect(principal.role).toBe("Owner");
 
     const session = getSession();
     expect(session?.accessToken).toBe("u.tok");
@@ -54,15 +66,16 @@ describe("loginUser", () => {
     expect(h.Authorization).toBeUndefined();
   });
 
-  it("falls back to local mock session on bad credentials", async () => {
+  it("does not create a local session on bad credentials", async () => {
     const fetchFn = vi.fn().mockResolvedValue(
-      jsonResponse({ message: "wrong password" }, 400)
+      jsonResponse({ error: "invalid credentials" }, 401)
     );
     globalThis.fetch = fetchFn as unknown as typeof fetch;
 
-    const principal = await loginUser({ email: "a@b.ro", password: "x" });
-    expect(principal.kind).toBe("user");
-    expect(getSession()?.principal.kind).toBe("user");
+    await expect(loginUser({ email: "a@b.ro", password: "x" })).rejects.toThrow(
+      "invalid credentials"
+    );
+    expect(getSession()).toBe(null);
   });
 });
 
@@ -71,17 +84,16 @@ describe("loginAdmin", () => {
     const fetchFn = vi.fn().mockResolvedValue(
       jsonResponse(
         {
-          token: { access_token: "a.tok", refresh_token: "a.ref" },
+          access_token: "a.tok",
+          token_type: "Bearer",
           admin: {
             id: 1,
             first_name: "Platform",
             last_name: "Admin",
             email: "admin@x.ro",
-            role: "platform_admin",
-            permissions: ["*"],
           },
         },
-        202
+        200
       )
     );
     globalThis.fetch = fetchFn as unknown as typeof fetch;
@@ -111,6 +123,9 @@ describe("logout", () => {
         kind: "user",
         id: 1,
         organisation_id: 1,
+        membership_id: 1,
+        workspace_name: "Demo",
+        workspaces: [],
         type: "x",
         first_name: "",
         last_name: "",

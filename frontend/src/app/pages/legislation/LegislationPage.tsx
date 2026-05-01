@@ -11,6 +11,8 @@ import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { useCollectionList } from "../../../hooks/useCollection";
+import { useExtensions } from "../../../hooks/useExtensions";
+import { useToast } from "../../../components/ui/Toast";
 import {
   AIResultCard,
   AIShimmerText,
@@ -45,6 +47,9 @@ const CAEN_OPTIONS = [
 ];
 
 export default function LegislationPage() {
+  const ext = useExtensions();
+  const toast = useToast();
+  const aiAvailable = ext.canUse("ai_assistant");
   const [topics, setTopics] = useState<string[]>([]);
   const [caenSelected, setCaenSelected] = useState<string[]>([]);
   const [query, setQuery] = useState("");
@@ -80,6 +85,10 @@ export default function LegislationPage() {
 
   const summarizeArticle = async (article: LegislationItem) => {
     setActiveArticle(article);
+    if (!aiAvailable) {
+      toast.error("AI Assistant nu este activ. Activează-l din Setări → Abonament.");
+      return;
+    }
     setBusy(true);
     setSummary("");
     for await (const chunk of summarize(`${article.title}. ${article.summary}`)) {
@@ -90,6 +99,10 @@ export default function LegislationPage() {
 
   const buildTopicDigest = async () => {
     if (filtered.length === 0) return;
+    if (!aiAvailable) {
+      toast.error("AI Assistant nu este activ. Activează-l din Setări → Abonament.");
+      return;
+    }
     setDigestBusy(true);
     setDigest("");
     const articles = filtered.map((a) => `${a.title}: ${a.summary}`);
@@ -248,6 +261,12 @@ export default function LegislationPage() {
                 label="Topic digest AI"
                 loading={digestBusy}
                 onClick={buildTopicDigest}
+                disabled={!aiAvailable}
+                title={
+                  aiAvailable
+                    ? "Generează un digest pe topic"
+                    : "Necesită AI Assistant activ"
+                }
               />
             </div>
 
@@ -302,6 +321,8 @@ export default function LegislationPage() {
                         <Button
                           size="xs"
                           variant="ghost"
+                          disabled={!aiAvailable}
+                          title={aiAvailable ? "Sumarizează cu AI" : "Necesită AI Assistant activ"}
                           onClick={(e) => {
                             e.stopPropagation();
                             void summarizeArticle(article);
@@ -344,7 +365,8 @@ export default function LegislationPage() {
                 size="sm"
                 variant="outline"
                 className="mt-4 w-full"
-                disabled={!activeArticle}
+                disabled={!activeArticle || !aiAvailable}
+                title={aiAvailable ? undefined : "Necesită AI Assistant activ"}
                 onClick={() => activeArticle && summarizeArticle(activeArticle)}
               >
                 <Sparkles className="w-4 h-4" /> Sumarizează

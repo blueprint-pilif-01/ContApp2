@@ -19,13 +19,13 @@ describe("mock API installer", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "a@b.ro", password: "x" }),
     });
-    expect(res.status).toBe(202);
+    expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      token: { access_token: string };
-      user: { email: string };
+      access_token: string;
+      account: { email: string };
     };
-    expect(body.token.access_token).toBeTruthy();
-    expect(body.user.email).toBe("andrei@contapp.ro");
+    expect(body.access_token).toBeTruthy();
+    expect(body.account.email).toBe("andrei@contapp.ro");
   });
 
   it("intercepts POST /admin/login and returns an admin principal", async () => {
@@ -35,9 +35,9 @@ describe("mock API installer", () => {
       body: JSON.stringify({}),
     });
     const body = (await res.json()) as {
-      admin: { role: string };
+      admin: { email: string };
     };
-    expect(body.admin.role).toBe("platform_admin");
+    expect(body.admin.email).toBe("admin@contapp.ro");
   });
 
   it("roundtrips a create/read/delete on /user/clients", async () => {
@@ -48,9 +48,9 @@ describe("mock API installer", () => {
     });
     expect(create.status).toBe(201);
     const created = (await create.json()) as {
-      data: { id: number };
+      id: number;
     };
-    const id = created.data.id;
+    const id = created.id;
     expect(typeof id).toBe("number");
 
     const read = await fetch(`http://localhost/user/clients/${id}`);

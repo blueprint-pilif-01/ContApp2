@@ -11,8 +11,8 @@ import { ToastProvider } from "./components/ui/Toast";
 import { router } from "./router";
 
 async function main() {
-  // Mock API is only allowed in non-production builds.
-  if (!import.meta.env.PROD && import.meta.env.VITE_MOCK_API !== "false") {
+  // Mock API is opt-in only. Normal dev should talk to the real Go backend.
+  if (!import.meta.env.PROD && import.meta.env.VITE_MOCK_API === "true") {
     const { installMockApi } = await import("./lib/mock");
     installMockApi();
   }

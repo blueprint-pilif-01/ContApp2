@@ -1,0 +1,733 @@
+ContApp - Full Application Description Draft
+============================================
+
+This is my current understanding of the application. This file is intentionally
+written as a draft so it can be corrected, expanded, or cut down into the exact
+product definition you want.
+
+
+1. High-Level Product
+---------------------
+
+ContApp is a web application for small and medium businesses across multiple
+industries. It helps organisations manage clients, contracts, internal work,
+employees, documents, legislation updates, planning, and communication from one
+workspace.
+
+The app has two broad sides:
+
+1. A public/marketing side where people can learn about the product and ask for a personalized offer 
+
+2. An authenticated workspace where users work with clients, contracts, tickets,
+   documents, notes, HR workflows, internal communication, planning, and
+   business/legal information. Users can also work with other users, organise
+   them, assign tickets, and monitor work progress.
+
+The app is organisation-based. Each small or medium business is represented as
+an organisation. Users belong to an organisation, and most data is scoped to
+that organisation. Platform administrators(super admin) can manage the platform globally.
+User can be business owner they can create teams manage users and manage the organisation.  
+
+The product is not industry-specific. The target direction is a broad business
+operations workspace for SMEs such as service companies, agencies,
+consultancies, local businesses, professional offices, and other growing teams.
+
+The product appears to be built around a freemium or subscription model:
+
+- Default features are available to all organisations.
+- Paid features unlock advanced modules such as contract management,
+  ticketing, HR, legislation intelligence, internal communication, and AI smart
+  planning.
+
+
+2. Main User Types
+------------------
+
+Platform administrator or super admins:
+
+- Manages the SaaS platform.
+- Can view and manage organisations and users.
+- Has access to admin dashboards and admin CRUD tools.
+
+Organisation administrator or business owner:
+
+- Manages one organisation/account.
+- Can invite or manage employees/users.
+- Can configure roles and permissions.
+- Can manage subscription/billing settings.
+- Can access all organisation-level modules allowed by the plan.
+- Can manage tickets and assign them to other users.
+- Can create employee categories.
+
+
+Employee / team member:
+
+- Works inside an organisation.
+- Manages clients, contracts, notes, tickets, calendar items, chat, documents, and
+  other work assigned to them.
+- May have limited access depending on role and permissions.
+
+Client / external signer:
+
+- Does not necessarily have an account.
+- Can receive a public secure signing link.
+- Opens the link, reviews the contract, fills dynamic fields, signs, and
+  submits the contract.
+
+
+3. Core Concepts
+----------------
+
+Organisation:
+
+- The main account boundary.
+- Owns users, clients, files, contracts, tickets, notes, HR data, chat, and
+  subscription data.
+- Has one or more administrators responsible for managing the organisation.
+- May support multiple teams in the future as an extension package.
+
+User:
+
+- A person with one global login account.
+- Works inside an organisation through an organisation membership.
+- The same account can belong to multiple organisations if needed.
+- Has roles and permissions.
+- Can be assigned tickets, write notes, participate in chat, track hours, request
+  leave, and work with clients/contracts.
+- Can plan vacation.
+- Can request certificates from the company.
+- Can belong to an employee category.
+
+Client:
+
+- For this stage, a client means an external customer of the organisation.
+- Client management is available only when Contracts Pro is purchased.
+- Can be a physical person or a client company.
+- Can have documents, notes, tickets, contracts, and contract submissions linked
+  to them.
+- The architecture should allow this concept to be extended later to partners,
+  suppliers, leads, projects, or external collaborators, but those meanings are
+  out of scope for the first stage.
+
+Contract:
+
+- A document/template created in the app.
+- Can contain dynamic fields.
+- Can be sent to a client through a public signing link.
+- Can result in a signed submission and final PDF.
+- Should support general business contracts, not only one industry-specific
+  contract type.
+- Should support both industry template packs and custom organisation-created
+  templates.
+- Should be flexible enough to add more contract flows later without damaging
+  the core app or database.
+
+File/document:
+
+- A stored file attached to a client, contract, signature, certificate, or other
+  workflow.
+- File bytes should live outside the database; database stores metadata and a
+  storage key.
+
+Task:
+
+- Simple personal tasks are removed for now.
+- Work items should be handled through the Ticketing System.
+- Ticketing tasks are closer to Jira-style task management, with assignment,
+  claim, completion, refusal, status, priority, and calendar visibility.
+
+AI:
+
+- Used in selected modules, not as the whole product.
+- Examples: deriving tickets from chat, summarising legislation, creating topic
+  digests, and smart planning.
+
+
+4. Default Features
+-------------------
+
+These are understood as basic features available by default.
+
+Dashboard:
+
+- Gives a summary of the current organisation workspace.
+- Shows KPIs such as clients and users(employees)
+- Shows recent activity and upcoming deadlines.
+
+Clients:
+- Available only when Contracts Pro is purchased.
+- Create and manage external customers.
+- Search/list clients.
+- View client details.
+- Attach notes and documents to a client.
+
+Notebook:
+
+- Long-form personal or organisation documents.
+- Can be used for internal procedures, checklists, process notes, or longer
+  documentation.
+- Documents likely support rich text or structured JSON content.
+
+Personal and shared notes:
+
+- Personal notes for individual users.
+- Shared workspace notes visible to others in the organisation.
+- Notes may be linked to a client.
+
+Simple calendar/planner:
+- Calendar view of tickets, contract deadlines, reminders, leave, meetings, and
+  custom events.
+- Basic planner is separate from the AI-driven smart planner.
+
+Simple employee management:
+
+- Manage employees/users in the organisation.
+- Assign roles and permissions.
+- Create employee categories.
+- Possibly invite users and reset passwords.
+
+Settings:
+
+- Account settings.
+- Billing/subscription settings.
+- User, role, and permission management.
+- Saved user signature settings.
+
+
+5. Paid / Advanced Features
+---------------------------
+
+5.1 Contracts Management
+
+Contract management is one of the main paid modules.
+
+It includes:
+
+- Create contract templates.
+- Edit contract templates in a rich text editor.
+- Add dynamic fields to templates.
+- Save template field structure.
+- Send contract invites to clients.
+- Generate public signing links.
+- Track invite status: draft, sent, viewed, signed, expired, revoked.
+- Let clients fill fields and sign without having an account.
+- Save client signatures.
+- Create contract submissions.
+- Generate/download final signed PDF.
+- Possibly reuse saved organisation/user signatures.
+- Possibly send manual or automatic reminders.
+- Provide industry template packs.
+- Allow organisations to create custom templates.
+- Keep the architecture open for future contract extensions and custom flows
+  without compromising the core app or database.
+
+Expected contract flow:
+
+1. A user creates a template.
+2. The user adds dynamic fields.
+3. The user creates invite for a client.
+4. App sends secure public link.
+5. Client opens link.
+6. Client fills required fields and signs.
+7. Backend stores submission.
+8. Backend generates final contract PDF.
+9. The organisation user can view/download the final signed contract.
+
+
+5.2 Ticketing System
+
+The ticketing module is a small Jira-like system for internal work management.
+
+It includes:
+
+- Create tickets.
+- Assign tickets to employees.
+- Claim a task.
+- Refuse/release a task.
+- Mark ticket as complete.
+- Manage ticket statuses.
+- View tickets in lists/boards.
+- View tickets in calendar/planner.
+- Link tickets to clients or other app entities.
+- Keep the architecture open for future ticket extensions.
+
+Possible statuses:
+
+- todo
+- in_progress
+- blocked
+- done
+- archived 
+
+This replaces simple personal tasks for now. All work tracking should go
+through ticketing.
+
+
+5.3 Internal Communication
+
+Internal communication is a business messaging module.
+
+It includes:
+
+- Direct conversations.
+- Group conversations.
+- Client-related conversations.
+- Message history.
+- Conversation participants.
+- Read/unread state.
+- System or bot messages.
+
+The chat module may also include a robot/bot that can derive tickets from a
+conversation. For example, a user writes a message about something that needs
+to be done, and the bot creates a ticket from it.
+
+For the first stage, chat is internal only between organisation users. Client or
+external collaborator participation is attractive, but should be treated as a
+future extension.
+
+
+5.4 HR
+
+The HR module supports internal employee administration.
+
+It includes:
+
+- Recording working hours.
+- Leave requests.
+- Vacation planning.
+- Leave types:
+  - odihna
+  - medical
+  - sabatic
+  - maternal
+- Leave approval/rejection.
+- Employee certificate requests.
+- Income certificate requests.
+- Employee reviews.
+- Possibly linking HR items to calendar/planner.
+
+This module is organisation-scoped and user-based. For now, HR is internal only
+for the organisation's own employees. Managing HR-like data for external client
+companies is out of scope.
+
+
+5.5 Legislation News
+
+The legislation module helps organisations follow relevant legal, regulatory,
+and business updates for their activity domain.
+
+It includes:
+
+- List of legislation/news updates.
+- Filter updates by category/domain/business activity.
+- Configure which topics/domains an organisation wants to receive.
+- Configure notification frequency.
+- Use AI to summarize news or legal updates.
+- Use AI to create topic digests.
+
+Possible frequencies:
+
+- instant
+- daily
+- weekly
+- never
+
+
+5.6 Smart Planner
+
+Planner Smart is an AI-driven planning feature.
+
+It likely uses tickets, calendar events, contract deadlines, HR leaves, and user
+availability to propose a plan.
+
+It may:
+
+- Generate a daily/weekly plan.
+- Suggest ticket ordering.
+- Highlight deadlines.
+- Balance workload.
+- Convert AI-generated suggestions into calendar events or tickets.
+
+Planner Smart belongs to the paid AI extension rather than being included in
+the base package.
+
+
+5.7 AI Extension
+
+AI should be a separately billed paid extension. It is only available to
+organisations that choose the AI extension.
+
+It can include:
+
+- Deriving tickets from chat messages.
+- Summarising legislation or business news.
+- Creating topic digests.
+- Generating smart planning suggestions.
+- Future AI-assisted automations.
+
+AI usage should be tracked separately from normal subscriptions so pricing can
+be based on usage, credits, or an AI add-on package.
+
+
+5.8 Future Extension Packages
+
+The architecture should allow future extensions without compromising the core
+app or database.
+
+Known future extensions:
+
+- Multiple teams.
+- External client/partner chat participation.
+- Project management.
+- More contract workflows.
+- Custom business integrations.
+- Custom fields and workflows.
+
+
+6. Admin Area
+-------------
+
+The admin area is for platform-level administration.
+
+It includes:
+
+- Admin login.
+- Admin overview/dashboard.
+- Organisations/companies management.
+- Users management.
+- Contract overview.
+- Files overview.
+- Notifications overview.
+- Stripe/billing management.
+- Jobs overview.
+- Audit/event log.
+
+The admin area should use the same backend API where possible, but with admin
+actor permissions allowing cross-organisation visibility.
+
+
+7. Permissions And Roles
+------------------------
+
+The app needs role-based access control.
+
+Permissions should be explicit and stable. Examples:
+
+- users.manage
+- clients.read
+- clients.manage
+- contracts.manage
+- contracts.signing.manage
+- files.manage
+- ticketing.manage
+- chat.use
+- hr.manage
+- hr.self
+- legislation.use
+- billing.manage
+- admin.platform
+
+Roles are collections of permissions. Example roles:
+
+- platform_admin
+- organisation_admin
+- manager
+- finance
+- employee
+- viewer
+
+The exact role names and permission names should be decided and kept stable.
+
+Roles are organisation-scoped. Permissions are global and stable. Default roles
+should be created for each organisation instead of using global role rows.
+
+Employee categories are separate from roles. Roles control permissions;
+employee categories describe the type of employee inside the business.
+
+For now, employee categories should be treated as simple business labels. They
+help the organisation classify employees, but they should not automatically
+control permissions. Permissions stay controlled by roles.
+
+Recommendation: keep employee categories simple in the first stage, but design
+them so they can be used later in reports and HR policies. They should not
+control permissions directly. Permissions should stay role-based.
+
+Future use of employee categories:
+
+- Reporting by employee type.
+- HR filtering.
+- Default approval flows.
+- Default leave/vacation rules.
+- Default role suggestions when creating a user.
+
+Example: an employee category like "Field Employee" could later have different
+leave rules, reports, or approval flows than "Office Employee". This is out of
+scope for the first stage, but the database should not block it later.
+
+
+8. Subscription Model
+---------------------
+
+The recommended pricing model is a free base package plus paid extensions.
+
+Base package:
+
+- Free.
+- Dashboard.
+- Organisation/user management.
+- Employee categories.
+- Notebook.
+- Personal and shared notes.
+- Organisation-wide documents.
+- Calendar/planner.
+
+Paid extensions:
+
+- Contracts Pro.
+- Ticketing Pro.
+- HR Pro.
+- Internal Chat.
+- Legislation Monitor.
+- AI Assistant.
+- Multi-Site Teams. This is a future extension for teams, branches, and
+  locations in multi-site businesses.
+
+Recommended packaging approach:
+
+- Base plan is free and includes a fixed employee capacity.
+- Extra employees are billed in bands.
+- Each paid extension can have its own usage bands.
+- Contracts Pro limits should be based on stored templates and signed
+  submissions.
+- AI Assistant should be billed separately, either by credits, usage, or AI
+  package tier.
+- Paid extensions can start around 200 EUR as a working assumption, but final
+  prices should be validated against market, cost, and customer willingness to
+  pay.
+
+Explanation of price points and bands:
+
+Price points are the actual amounts charged for each plan or extension. For
+example, Base for 1-10 employees might cost one price, and Base for 11-20
+employees might cost a higher price. Bands are usage ranges used to keep
+pricing simple instead of billing every employee or every contract one by one.
+
+Example free base employee bands:
+
+- 1-10 employees: free base.
+- 11-20 employees: paid employee band or custom upgrade.
+- 21-30 employees: paid employee band or custom upgrade.
+- 31-50 employees: paid employee band or custom upgrade.
+- 51+ employees: custom offer.
+
+Working extension price assumption:
+
+- Each paid extension can start from 200 EUR.
+- The exact meaning of 200 EUR must be decided later: monthly, yearly, or setup
+  fee.
+- Recommendation: treat it as monthly recurring price for a serious business
+  extension, and keep custom offers for larger organisations.
+
+Example Contracts Pro template bands:
+
+- up to 10 stored templates.
+- up to 20 stored templates.
+- up to 30 stored templates.
+- higher usage: custom offer.
+
+Example Contracts Pro submission bands:
+
+- 50 signed submissions / month.
+- 150 signed submissions / month.
+- 300 signed submissions / month.
+- higher usage: custom offer.
+
+Proposed plan structure:
+
+- Base: required workspace subscription.
+- Base + Contracts Pro.
+- Base + Ticketing Pro.
+- Base + HR Pro.
+- Base + Internal Chat.
+- Base + Legislation Monitor.
+- Base + AI Assistant.
+- Bundle: Base + multiple extensions at discount.
+- Custom: negotiated package for larger or special businesses.
+
+Billing should support:
+
+- current organisation subscription
+- employee bands
+- extension activation
+- extension-specific limits
+- effective organisation entitlements through organisation_features
+- entitlement reconciliation from subscriptions, manual overrides, trials, and
+  custom deals
+- Contracts Pro template and submission limits
+- AI Assistant usage or credits
+- Stripe checkout
+- Stripe billing portal
+- Stripe webhook processing
+- usage counters
+
+
+8.1 Public Roadmap / Future Extensions
+--------------------------------------
+
+These features should be included in the public roadmap as future extensions.
+There is no fixed priority order yet.
+
+- Projects.
+- External client/partner chat.
+- Custom workflows.
+- Custom fields.
+- Business integrations.
+- Teams.
+- Branches.
+- Locations.
+
+These should be designed as extension packages or configurable modules, not as
+hardcoded one-off changes for a single business.
+
+
+9. Data Architecture Summary
+----------------------------
+
+The database should be PostgreSQL.
+
+Most tables should include organisation_id because most data belongs to one
+organisation.
+
+Important data groups:
+
+- identity: admins, users, roles, permissions, sessions
+- organisations: organisations and settings
+- billing: plans, subscriptions, Stripe events, usage counters
+- clients: one external customer table for physical people and companies
+- documents: files, client documents, signatures
+- contracts: templates, fields, invites, submissions, contract numbers
+- work: notes, notifications
+- ticketing: structured team tasks
+- chat: conversations, participants, messages
+- planner: calendar events and AI smart plans
+- notebook: long-form documents
+- HR: hours, leave, reviews, certificates
+- legislation: updates and preferences
+- audit: events and job runs
+- AI: AI request tracking
+- extension system: organisation features, custom fields, workflows, and
+  automation rules for future extensibility
+- future multi-site structure: teams, branches, and locations
+
+General database rules:
+
+- Use organisation_id for organisation-scoped data.
+- Avoid global uniqueness for client names, phone numbers, and addresses.
+- Store public signing tokens only as hashes.
+- Store file bytes outside the database.
+- Keep audit events append-only.
+- Use soft delete for user-facing business records.
+- Future extension tables may stay documented in DBML for architecture
+  visibility, but should be added to the real database later through
+  package-specific migrations.
+- Use transactions for contract signing and billing changes.
+- Keep the database modular so future packages such as projects, multiple
+  teams, external chat, custom fields, workflows, and integrations can be added
+  without rewriting core tables.
+- Platform admins should be stored outside organisation users. They manage the
+  SaaS platform globally and should not belong to a normal organisation account.
+
+
+10. Backend Architecture Summary
+--------------------------------
+
+The backend should be a modular Go monolith at first.
+
+Suggested modules:
+
+- auth / identity
+- organisations
+- billing
+- clients
+- documents
+- contracts
+- public signing
+- dashboard
+- notes
+- ticketing
+- chat
+- planner
+- notebook
+- HR
+- legislation
+- notifications
+- audit
+- AI
+- extension framework
+
+Each module should have:
+
+- HTTP handlers
+- DTOs
+- service/business logic
+- repository/database logic
+- tests
+
+External integrations should be behind interfaces:
+
+- Email sender
+- Object storage
+- PDF renderer
+- Stripe client
+- AI provider
+
+
+11. Frontend Architecture Summary
+---------------------------------
+
+The frontend is a React app with:
+
+- public landing page
+- user login/register
+- authenticated application shell
+- admin shell
+- public signing pages
+- dashboard
+- clients
+- contracts
+- ticketing
+- chat
+- calendar/planner
+- notes
+- notebook
+- HR
+- legislation
+- settings
+
+The frontend currently uses mock APIs for some newer modules. The backend needs
+to implement the API contract progressively.
+
+
+12. Open Questions To Correct
+-----------------------------
+
+These are the areas where my understanding may be wrong or incomplete:
+
+1. Should the 200 EUR starting price for paid extensions be monthly, yearly, or
+   a one-time setup fee?
+2. Should extra employee bands have fixed prices or be handled through custom
+   offers after the free base employee limit?
+3. What final price amounts should be used for each paid extension and usage
+   band?
+
+
+13. Short Product Statement
+---------------------------
+
+ContApp is an organisation-based SaaS workspace for small and medium businesses
+across multiple industries. It combines client management, contract signing,
+documents, ticketing, notes, planning, HR, internal communication, legislation
+updates, and selected AI-assisted workflows into one platform. The system is
+subscription-based, with a base workspace package and optional paid extensions
+for contracts, ticketing, HR, internal chat, legislation, AI, and future
+multi-site/custom expansion packages.

@@ -1,0 +1,1053 @@
+Project ContApp {
+  database_type: 'PostgreSQL'
+  Note: '''
+    ContApp scalable organisation-scoped database design.
+    Paste this file into https://dbdiagram.io to visualize the schema.
+  '''
+}
+
+Table admins [headercolor: #8E44AD] {
+  id bigint [pk, increment]
+  email text [not null, unique]
+  password_hash text [not null]
+  first_name text [not null]
+  last_name text [not null]
+  status text [not null, default: 'active']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Platform-level administrators. Not organisation-scoped.'
+}
+
+Table organisations [headercolor: #2E86C1] {
+  id bigint [pk, increment]
+  name text [not null]
+  cui text [unique]
+  address text
+  status text [not null, default: 'active']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  Note: 'Primary organisation/account boundary for app data.'
+}
+
+Table organisation_settings [headercolor: #2E86C1] {
+  organisation_id bigint [pk, not null]
+  settings jsonb [not null, default: '{}']
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table employee_categories [headercolor: #2E86C1] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  name text [not null]
+  description text
+  color text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, name) [unique, name: 'employee_categories_org_name_unique']
+  }
+
+  Note: 'Simple employee labels for stage one. Future use: HR policies, reporting, approval flows, role suggestions. Unique name should be partial in SQL where deleted_at is null.'
+}
+
+Table accounts [headercolor: #8E44AD] {
+  id bigint [pk, increment]
+  email text [not null]
+  password_hash text [not null]
+  first_name text [not null]
+  last_name text [not null]
+  phone text
+  status text [not null, default: 'active']
+  last_login_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (email) [unique, name: 'accounts_email_unique']
+    (status)
+  }
+
+  Note: 'Global login identity. One account can belong to multiple organisations through organisation_memberships. Unique email should be partial in SQL where deleted_at is null.'
+}
+
+Table organisation_memberships [headercolor: #8E44AD] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  account_id bigint [not null]
+  employee_category_id bigint
+  display_name text
+  job_title text
+  status text [not null, default: 'active', note: 'invited | active | suspended | removed']
+  invited_by_membership_id bigint
+  invited_at timestamptz
+  joined_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, account_id) [unique, name: 'organisation_memberships_account_unique']
+    (organisation_id, status)
+    (account_id, status)
+  }
+
+  Note: 'Organisation user/employee record. Product-facing user references inside an organisation should point here. Unique organisation/account should be partial in SQL where deleted_at is null.'
+}
+
+Table roles [headercolor: #8E44AD] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  slug text [not null]
+  name text [not null]
+  system_role boolean [not null, default: false, note: 'Seeded default role for each organisation, not global']
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, slug) [unique, name: 'roles_org_slug_unique']
+  }
+
+  Note: 'Roles are organisation-scoped. Permissions are global; default roles are seeded per organisation.'
+}
+
+Table permissions [headercolor: #8E44AD] {
+  id bigint [pk, increment]
+  slug text [not null, unique]
+  description text
+}
+
+Table role_permissions [headercolor: #8E44AD] {
+  role_id bigint [not null]
+  permission_id bigint [not null]
+
+  indexes {
+    (role_id, permission_id) [pk]
+  }
+}
+
+Table membership_roles [headercolor: #8E44AD] {
+  membership_id bigint [not null]
+  role_id bigint [not null]
+
+  indexes {
+    (membership_id, role_id) [pk]
+  }
+}
+
+Table refresh_sessions [headercolor: #8E44AD] {
+  id bigint [pk, increment]
+  jti text [not null, unique]
+  actor_type text [not null, note: 'admin | account']
+  subject_id bigint [not null]
+  active_organisation_id bigint
+  active_membership_id bigint
+  expires_at timestamptz [not null]
+  revoked_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (actor_type, subject_id) [name: 'refresh_sessions_subject_idx']
+  }
+
+  Note: 'subject_id points to admins.id or accounts.id depending on actor_type. Membership context is stored separately.'
+}
+
+Table subscription_plans [headercolor: #D68910] {
+  id bigint [pk, increment]
+  slug text [not null, unique]
+  name text [not null]
+  plan_kind text [not null, default: 'base', note: 'base | extension | bundle | custom']
+  price_cents integer [not null, default: 0]
+  currency text [not null, default: 'EUR']
+  stripe_price_id text [unique]
+  limits_json jsonb [not null, default: '{}']
+  features_json jsonb [not null, default: '{}']
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table feature_definitions [headercolor: #D68910] {
+  id bigint [pk, increment]
+  feature_key text [not null, unique]
+  name text [not null]
+  package_name text [not null, note: 'Base | Contracts Pro | Ticketing Pro | HR Pro | Internal Chat | Legislation Monitor | AI Assistant | Multi-Site Teams']
+  category text [not null, default: 'extension', note: 'base | extension | future']
+  description text
+  default_limits_json jsonb [not null, default: '{}']
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table plan_features [headercolor: #D68910] {
+  subscription_plan_id bigint [not null]
+  feature_definition_id bigint [not null]
+  limits_json jsonb [not null, default: '{}']
+
+  indexes {
+    (subscription_plan_id, feature_definition_id) [pk]
+  }
+}
+
+Table subscriptions [headercolor: #D68910] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  subscription_plan_id bigint [not null]
+  status text [not null, default: 'active']
+  stripe_subscription_id text [unique]
+  current_period_start timestamptz
+  current_period_end timestamptz
+  cancel_at_period_end boolean [not null, default: false]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, status)
+  }
+}
+
+Table organisation_features [headercolor: #D68910] {
+  organisation_id bigint [not null]
+  feature_definition_id bigint [not null]
+  enabled boolean [not null, default: true]
+  source text [not null, default: 'subscription', note: 'subscription | manual | trial | custom']
+  starts_at timestamptz
+  expires_at timestamptz
+  config_json jsonb [not null, default: '{}']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, feature_definition_id) [pk]
+    (feature_definition_id, enabled)
+  }
+
+  Note: 'Effective entitlement table for feature access. Reconcile from subscriptions, manual overrides, trials, and custom deals. Runtime feature guards should read this table.'
+}
+
+Table organisation_feature_limits [headercolor: #D68910] {
+  organisation_id bigint [not null]
+  feature_definition_id bigint [not null]
+  limit_key text [not null]
+  limit_value bigint [not null]
+  period text [not null, default: 'none', note: 'none | monthly | yearly']
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, feature_definition_id, limit_key) [pk]
+  }
+
+  Note: 'Effective limits for enabled features. Reconcile from plan_features/default limits and organisation-specific overrides.'
+}
+
+Table usage_counters [headercolor: #D68910] {
+  organisation_id bigint [not null]
+  period_start date [not null]
+  metric text [not null]
+  value bigint [not null, default: 0]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, period_start, metric) [pk]
+  }
+}
+
+Table stripe_events [headercolor: #D68910] {
+  id text [pk]
+  event_type text [not null]
+  payload jsonb [not null]
+  processed_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+
+  Note: 'Stores Stripe event IDs for idempotent webhook processing.'
+}
+
+Table clients [headercolor: #27AE60] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  owner_user_id bigint
+  client_type text [not null, default: 'person', note: 'person | company']
+
+  // Person client fields
+  first_name text
+  last_name text
+  cnp text
+
+  // Company client fields
+  company_name text
+  cui text
+  tva boolean [not null, default: false]
+  responsible_name text
+  responsible_email text
+
+  // Shared contact fields
+  email text
+  phone text
+  address text
+  status text [not null, default: 'active']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, email) [unique, name: 'clients_org_email_unique']
+    (organisation_id, cnp) [unique, name: 'clients_org_cnp_unique']
+    (organisation_id, cui) [unique, name: 'clients_org_cui_unique']
+    (organisation_id, last_name, first_name) [name: 'clients_org_search_idx']
+    (organisation_id, company_name) [name: 'clients_org_company_search_idx']
+  }
+
+  Note: 'Single external customer table. client_type decides whether person or company fields are used. Email/CNP/CUI uniqueness should be partial in SQL where values are non-null and deleted_at is null.'
+}
+
+Table files [headercolor: #16A085] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  uploaded_by_id bigint
+  storage_key text [not null, unique]
+  original_name text [not null]
+  mime_type text [not null]
+  size_bytes bigint [not null]
+  checksum_sha256 text
+  category text
+  created_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, category, created_at) [name: 'files_org_category_idx']
+  }
+}
+
+Table organisation_documents [headercolor: #16A085] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  file_id bigint [not null]
+  uploaded_by_id bigint
+  document_name text [not null]
+  document_type text
+  visibility text [not null, default: 'organisation', note: 'organisation | restricted']
+  remarks text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, document_type, created_at) [name: 'organisation_documents_type_idx']
+  }
+
+  Note: 'General organisation-wide documents, not only client/contract files.'
+}
+
+Table client_documents [headercolor: #16A085] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  client_id bigint [not null]
+  file_id bigint [not null]
+  document_name text [not null]
+  file_type text
+  status text [not null, default: 'active']
+  expiration_date timestamptz
+  remarks text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, client_id, created_at) [name: 'client_documents_client_idx']
+  }
+}
+
+Table signatures [headercolor: #16A085] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  owner_user_id bigint
+  name text [not null]
+  file_id bigint
+  signature_png bytea
+  created_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, owner_user_id)
+  }
+}
+
+Table contract_templates [headercolor: #C0392B] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  created_by_id bigint [not null]
+  name text [not null]
+  contract_type text [not null]
+  content_json jsonb [not null, default: '{}']
+  status text [not null, default: 'draft']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, created_at) [name: 'contract_templates_org_idx']
+    (organisation_id, status)
+  }
+}
+
+Table contract_invites [headercolor: #C0392B] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  template_id bigint [not null]
+  client_id bigint [not null]
+  created_by_id bigint [not null]
+  token_hash text [not null, unique]
+  status text [not null, default: 'draft', note: 'draft | sent | viewed | signed | expired | revoked']
+  remarks text
+  expiration_date timestamptz
+  sent_at timestamptz
+  viewed_at timestamptz
+  revoked_at timestamptz
+  signed_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, status, created_at) [name: 'contract_invites_org_status_idx']
+    (expiration_date) [name: 'contract_invites_expiration_idx']
+  }
+}
+
+Table contract_submissions [headercolor: #C0392B] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  invite_id bigint [not null, unique]
+  template_id bigint [not null]
+  client_id bigint [not null]
+  filled_fields jsonb [not null, default: '{}']
+  signature_image bytea
+  contract_number text
+  pdf_file_id bigint
+  status text [not null, default: 'signed']
+  signed_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, contract_number) [unique, name: 'contract_submissions_org_number_unique']
+    (organisation_id, created_at) [name: 'contract_submissions_org_idx']
+  }
+}
+
+Table contract_numbers [headercolor: #C0392B] {
+  organisation_id bigint [not null]
+  year integer [not null]
+  last_number integer [not null, default: 0]
+
+  indexes {
+    (organisation_id, year) [pk]
+  }
+
+  Note: 'Transactional counter for organisation/year contract numbers.'
+}
+
+Table notifications [headercolor: #7F8C8D] {
+  id bigint [pk, increment]
+  organisation_id bigint
+  user_id bigint [not null]
+  title text [not null]
+  body text [not null]
+  type text
+  data jsonb [not null, default: '{}']
+  read_at timestamptz
+  scheduled_for timestamptz
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (user_id, created_at) [name: 'notifications_user_created_idx']
+  }
+}
+
+Table legislation_updates [headercolor: #1F618D] {
+  id bigint [pk, increment]
+  title text [not null]
+  source_name text
+  source_url text
+  category text
+  summary text
+  published_at timestamptz
+  content_hash text [unique]
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (category, published_at) [name: 'legislation_updates_category_idx']
+  }
+}
+
+Table legislation_preferences [headercolor: #1F618D] {
+  organisation_id bigint [pk]
+  categories text[] [not null, default: '{}']
+  frequency text [not null, default: 'weekly', note: 'instant | daily | weekly | never']
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Organisation-level legislation preferences for stage one.'
+}
+
+Table events [headercolor: #34495E] {
+  id bigint [pk, increment]
+  organisation_id bigint
+  actor_type text
+  actor_id bigint
+  event_type text [not null]
+  entity_type text
+  entity_id bigint
+  data jsonb [not null, default: '{}']
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, created_at) [name: 'events_org_created_idx']
+  }
+
+  Note: 'Append-only audit/event log.'
+}
+
+Table job_runs [headercolor: #34495E] {
+  id bigint [pk, increment]
+  job_name text [not null]
+  status text [not null, note: 'running | success | failed']
+  started_at timestamptz [not null, default: `now()`]
+  finished_at timestamptz
+  error text
+  metadata jsonb [not null, default: '{}']
+
+  indexes {
+    (job_name, started_at) [name: 'job_runs_name_started_idx']
+  }
+}
+
+Table ticketing_tasks [headercolor: #E67E22] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  created_by_id bigint [not null]
+  assignee_user_id bigint
+  client_id bigint
+  title text [not null]
+  description text
+  status text [not null, default: 'todo', note: 'todo | in_progress | blocked | done']
+  priority text [not null, default: 'normal', note: 'low | normal | high | urgent']
+  source_type text [note: 'manual | chat | ai | client | contract']
+  source_id bigint
+  due_at timestamptz
+  claimed_at timestamptz
+  completed_at timestamptz
+  refused_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, status, priority, due_at) [name: 'ticketing_tasks_pipeline_idx']
+    (organisation_id, assignee_user_id, status) [name: 'ticketing_tasks_assignee_idx']
+  }
+}
+
+Table chat_conversations [headercolor: #9B59B6] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  type text [not null, default: 'direct', note: 'direct | group | client']
+  title text
+  client_id bigint
+  created_by_id bigint [not null]
+  last_message_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  archived_at timestamptz
+
+  indexes {
+    (organisation_id, last_message_at) [name: 'chat_conversations_recent_idx']
+    (organisation_id, client_id) [name: 'chat_conversations_client_idx']
+  }
+}
+
+Table chat_participants [headercolor: #9B59B6] {
+  conversation_id bigint [not null]
+  user_id bigint [not null]
+  role text [not null, default: 'member', note: 'owner | member']
+  last_read_at timestamptz
+  joined_at timestamptz [not null, default: `now()`]
+  left_at timestamptz
+
+  indexes {
+    (conversation_id, user_id) [pk]
+    (user_id, last_read_at) [name: 'chat_participants_user_idx']
+  }
+}
+
+Table chat_messages [headercolor: #9B59B6] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  conversation_id bigint [not null]
+  sender_user_id bigint
+  kind text [not null, default: 'user', note: 'user | system | bot']
+  body text [not null]
+  metadata jsonb [not null, default: '{}']
+  derived_ticket_id bigint
+  created_at timestamptz [not null, default: `now()`]
+  edited_at timestamptz
+  deleted_at timestamptz
+
+  indexes {
+    (conversation_id, created_at) [name: 'chat_messages_conversation_idx']
+    (organisation_id, created_at) [name: 'chat_messages_org_idx']
+  }
+}
+
+Table planner_events [headercolor: #2980B9] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  owner_user_id bigint [not null]
+  client_id bigint
+  title text [not null]
+  description text
+  category text [note: 'contract | ticket | meeting | reminder | hr | custom']
+  starts_at timestamptz [not null]
+  ends_at timestamptz
+  all_day boolean [not null, default: false]
+  source_type text
+  source_id bigint
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, starts_at) [name: 'planner_events_org_time_idx']
+    (organisation_id, owner_user_id, starts_at) [name: 'planner_events_owner_time_idx']
+  }
+}
+
+Table planner_smart_plans [headercolor: #2980B9] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  user_id bigint [not null]
+  title text [not null]
+  prompt text
+  plan_json jsonb [not null, default: '{}']
+  status text [not null, default: 'draft', note: 'draft | accepted | archived']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, user_id, created_at) [name: 'planner_smart_plans_user_idx']
+  }
+}
+
+Table workspace_notes [headercolor: #7F8C8D] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  owner_user_id bigint [not null]
+  client_id bigint
+  visibility text [not null, default: 'personal', note: 'personal | shared']
+  title text [not null]
+  body text [not null]
+  pinned boolean [not null, default: false]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, visibility, updated_at) [name: 'workspace_notes_visibility_idx']
+    (organisation_id, owner_user_id, updated_at) [name: 'workspace_notes_owner_idx']
+  }
+}
+
+Table notebook_documents [headercolor: #7F8C8D] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  owner_user_id bigint [not null]
+  title text [not null]
+  content_json jsonb [not null, default: '{}']
+  folder text
+  tags text[] [not null, default: '{}']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, owner_user_id, updated_at) [name: 'notebook_documents_owner_idx']
+  }
+}
+
+Table hr_hours [headercolor: #1ABC9C] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  user_id bigint [not null]
+  work_date date [not null]
+  hours numeric [not null]
+  description text
+  status text [not null, default: 'submitted', note: 'draft | submitted | approved | rejected']
+  approved_by_id bigint
+  approved_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, user_id, work_date) [name: 'hr_hours_user_date_idx']
+  }
+}
+
+Table hr_leaves [headercolor: #1ABC9C] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  user_id bigint [not null]
+  type text [not null, note: 'odihna | medical | sabatic | maternal']
+  status text [not null, default: 'pending', note: 'pending | approved | rejected']
+  starts_on date [not null]
+  ends_on date [not null]
+  reason text
+  reviewed_by_id bigint
+  reviewed_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, user_id, starts_on) [name: 'hr_leaves_user_period_idx']
+    (organisation_id, status, starts_on) [name: 'hr_leaves_status_idx']
+  }
+}
+
+Table hr_reviews [headercolor: #1ABC9C] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  user_id bigint [not null]
+  reviewer_user_id bigint [not null]
+  period_start date
+  period_end date
+  rating integer
+  notes text
+  review_json jsonb [not null, default: '{}']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, user_id, created_at) [name: 'hr_reviews_user_idx']
+  }
+}
+
+Table hr_certificate_requests [headercolor: #1ABC9C] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  user_id bigint [not null]
+  requested_by_id bigint [not null]
+  type text [not null, note: 'employee_certificate | income_certificate']
+  status text [not null, default: 'pending', note: 'pending | generated | rejected']
+  file_id bigint
+  created_at timestamptz [not null, default: `now()`]
+  completed_at timestamptz
+
+  indexes {
+    (organisation_id, user_id, created_at) [name: 'hr_certificate_requests_user_idx']
+    (organisation_id, status, created_at) [name: 'hr_certificate_requests_status_idx']
+  }
+}
+
+Table ai_requests [headercolor: #5D6D7E] {
+  id bigint [pk, increment]
+  organisation_id bigint
+  user_id bigint
+  feature text [not null, note: 'summarize | topic_digest | derive_ticket | smart_planner']
+  provider text
+  model text
+  input_hash text
+  input_json jsonb [not null, default: '{}']
+  output_json jsonb [not null, default: '{}']
+  status text [not null, default: 'success', note: 'success | failed']
+  error text
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, feature, created_at) [name: 'ai_requests_org_feature_idx']
+    (user_id, created_at) [name: 'ai_requests_user_idx']
+  }
+}
+
+Table custom_fields [headercolor: #5D6D7E] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  entity_type text [not null, note: 'future extension: client | ticket | contract | employee | project']
+  field_key text [not null]
+  label text [not null]
+  field_type text [not null, note: 'text | number | date | boolean | select | multi_select | json']
+  required boolean [not null, default: false]
+  options_json jsonb [not null, default: '{}']
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, entity_type, field_key) [unique, name: 'custom_fields_entity_key_unique']
+  }
+
+  Note: 'Future extension framework. Do not use to replace core relational fields.'
+}
+
+Table workflow_definitions [headercolor: #5D6D7E] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  workflow_key text [not null]
+  entity_type text [not null, note: 'future extension: ticket | contract | project | custom']
+  name text [not null]
+  states_json jsonb [not null, default: '[]']
+  transitions_json jsonb [not null, default: '[]']
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, workflow_key) [unique, name: 'workflow_definitions_org_key_unique']
+  }
+}
+
+Table automation_rules [headercolor: #5D6D7E] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  name text [not null]
+  trigger_type text [not null]
+  conditions_json jsonb [not null, default: '{}']
+  actions_json jsonb [not null, default: '[]']
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, active, trigger_type) [name: 'automation_rules_trigger_idx']
+  }
+}
+
+Table integration_connections [headercolor: #5D6D7E] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  provider text [not null]
+  status text [not null, default: 'inactive', note: 'inactive | active | error']
+  config_json jsonb [not null, default: '{}']
+  credentials_secret_key text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, provider) [unique, name: 'integration_connections_provider_unique']
+  }
+}
+
+Table webhook_subscriptions [headercolor: #5D6D7E] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  event_type text [not null]
+  target_url text [not null]
+  secret_hash text
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (organisation_id, event_type, active) [name: 'webhook_subscriptions_event_idx']
+  }
+}
+
+Table webhook_deliveries [headercolor: #5D6D7E] {
+  id bigint [pk, increment]
+  webhook_subscription_id bigint [not null]
+  event_id bigint
+  status text [not null, default: 'pending', note: 'pending | success | failed']
+  attempts integer [not null, default: 0]
+  response_status integer
+  error text
+  created_at timestamptz [not null, default: `now()`]
+  delivered_at timestamptz
+
+  indexes {
+    (webhook_subscription_id, created_at) [name: 'webhook_deliveries_subscription_idx']
+    (status, created_at) [name: 'webhook_deliveries_status_idx']
+  }
+}
+
+Table teams [headercolor: #5D6D7E] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  name text [not null]
+  description text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, name) [unique, name: 'teams_org_name_unique']
+  }
+
+  Note: 'Future Multi-Site Teams extension.'
+}
+
+Table branches [headercolor: #5D6D7E] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  name text [not null]
+  address text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, name) [unique, name: 'branches_org_name_unique']
+  }
+
+  Note: 'Future Multi-Site Teams extension.'
+}
+
+Table locations [headercolor: #5D6D7E] {
+  id bigint [pk, increment]
+  organisation_id bigint [not null]
+  branch_id bigint
+  name text [not null]
+  address text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    (organisation_id, branch_id, name) [unique, name: 'locations_branch_name_unique']
+  }
+
+  Note: 'Future Multi-Site Teams extension.'
+}
+
+Table membership_team_assignments [headercolor: #5D6D7E] {
+  membership_id bigint [not null]
+  team_id bigint [not null]
+  role text
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (membership_id, team_id) [pk]
+  }
+}
+
+Ref: organisation_settings.organisation_id - organisations.id [delete: cascade]
+Ref: employee_categories.organisation_id > organisations.id [delete: cascade]
+
+Ref: organisation_memberships.organisation_id > organisations.id [delete: cascade]
+Ref: organisation_memberships.account_id > accounts.id [delete: cascade]
+Ref: organisation_memberships.employee_category_id > employee_categories.id [delete: set null]
+Ref: organisation_memberships.invited_by_membership_id > organisation_memberships.id [delete: set null]
+Ref: roles.organisation_id > organisations.id [delete: cascade]
+Ref: role_permissions.role_id > roles.id [delete: cascade]
+Ref: role_permissions.permission_id > permissions.id [delete: cascade]
+Ref: membership_roles.membership_id > organisation_memberships.id [delete: cascade]
+Ref: membership_roles.role_id > roles.id [delete: cascade]
+Ref: refresh_sessions.active_organisation_id > organisations.id [delete: set null]
+Ref: refresh_sessions.active_membership_id > organisation_memberships.id [delete: set null]
+
+Ref: plan_features.subscription_plan_id > subscription_plans.id [delete: cascade]
+Ref: plan_features.feature_definition_id > feature_definitions.id [delete: cascade]
+Ref: subscriptions.organisation_id > organisations.id [delete: cascade]
+Ref: subscriptions.subscription_plan_id > subscription_plans.id
+Ref: organisation_features.organisation_id > organisations.id [delete: cascade]
+Ref: organisation_features.feature_definition_id > feature_definitions.id [delete: cascade]
+Ref: organisation_feature_limits.organisation_id > organisations.id [delete: cascade]
+Ref: organisation_feature_limits.feature_definition_id > feature_definitions.id [delete: cascade]
+Ref: usage_counters.organisation_id > organisations.id [delete: cascade]
+
+Ref: clients.organisation_id > organisations.id [delete: cascade]
+Ref: clients.owner_user_id > organisation_memberships.id [delete: set null]
+
+Ref: files.organisation_id > organisations.id [delete: cascade]
+Ref: files.uploaded_by_id > organisation_memberships.id [delete: set null]
+Ref: organisation_documents.organisation_id > organisations.id [delete: cascade]
+Ref: organisation_documents.file_id > files.id [delete: restrict]
+Ref: organisation_documents.uploaded_by_id > organisation_memberships.id [delete: set null]
+Ref: client_documents.organisation_id > organisations.id [delete: cascade]
+Ref: client_documents.client_id > clients.id [delete: cascade]
+Ref: client_documents.file_id > files.id [delete: restrict]
+Ref: signatures.organisation_id > organisations.id [delete: cascade]
+Ref: signatures.owner_user_id > organisation_memberships.id [delete: cascade]
+Ref: signatures.file_id > files.id [delete: set null]
+
+Ref: contract_templates.organisation_id > organisations.id [delete: cascade]
+Ref: contract_templates.created_by_id > organisation_memberships.id [delete: restrict]
+Ref: contract_invites.organisation_id > organisations.id [delete: cascade]
+Ref: contract_invites.template_id > contract_templates.id [delete: restrict]
+Ref: contract_invites.client_id > clients.id [delete: restrict]
+Ref: contract_invites.created_by_id > organisation_memberships.id [delete: restrict]
+Ref: contract_submissions.organisation_id > organisations.id [delete: cascade]
+Ref: contract_submissions.invite_id - contract_invites.id [delete: restrict]
+Ref: contract_submissions.template_id > contract_templates.id [delete: restrict]
+Ref: contract_submissions.client_id > clients.id [delete: restrict]
+Ref: contract_submissions.pdf_file_id > files.id [delete: set null]
+Ref: contract_numbers.organisation_id > organisations.id [delete: cascade]
+
+Ref: notifications.organisation_id > organisations.id [delete: cascade]
+Ref: notifications.user_id > organisation_memberships.id [delete: cascade]
+
+Ref: legislation_preferences.organisation_id - organisations.id [delete: cascade]
+
+Ref: events.organisation_id > organisations.id [delete: set null]
+
+Ref: ticketing_tasks.organisation_id > organisations.id [delete: cascade]
+Ref: ticketing_tasks.created_by_id > organisation_memberships.id [delete: restrict]
+Ref: ticketing_tasks.assignee_user_id > organisation_memberships.id [delete: set null]
+Ref: ticketing_tasks.client_id > clients.id [delete: set null]
+
+Ref: chat_conversations.organisation_id > organisations.id [delete: cascade]
+Ref: chat_conversations.client_id > clients.id [delete: set null]
+Ref: chat_conversations.created_by_id > organisation_memberships.id [delete: restrict]
+Ref: chat_participants.conversation_id > chat_conversations.id [delete: cascade]
+Ref: chat_participants.user_id > organisation_memberships.id [delete: cascade]
+Ref: chat_messages.organisation_id > organisations.id [delete: cascade]
+Ref: chat_messages.conversation_id > chat_conversations.id [delete: cascade]
+Ref: chat_messages.sender_user_id > organisation_memberships.id [delete: set null]
+Ref: chat_messages.derived_ticket_id > ticketing_tasks.id [delete: set null]
+
+Ref: planner_events.organisation_id > organisations.id [delete: cascade]
+Ref: planner_events.owner_user_id > organisation_memberships.id [delete: cascade]
+Ref: planner_events.client_id > clients.id [delete: set null]
+Ref: planner_smart_plans.organisation_id > organisations.id [delete: cascade]
+Ref: planner_smart_plans.user_id > organisation_memberships.id [delete: cascade]
+
+Ref: workspace_notes.organisation_id > organisations.id [delete: cascade]
+Ref: workspace_notes.owner_user_id > organisation_memberships.id [delete: cascade]
+Ref: workspace_notes.client_id > clients.id [delete: set null]
+Ref: notebook_documents.organisation_id > organisations.id [delete: cascade]
+Ref: notebook_documents.owner_user_id > organisation_memberships.id [delete: cascade]
+
+Ref: hr_hours.organisation_id > organisations.id [delete: cascade]
+Ref: hr_hours.user_id > organisation_memberships.id [delete: cascade]
+Ref: hr_hours.approved_by_id > organisation_memberships.id [delete: set null]
+Ref: hr_leaves.organisation_id > organisations.id [delete: cascade]
+Ref: hr_leaves.user_id > organisation_memberships.id [delete: cascade]
+Ref: hr_leaves.reviewed_by_id > organisation_memberships.id [delete: set null]
+Ref: hr_reviews.organisation_id > organisations.id [delete: cascade]
+Ref: hr_reviews.user_id > organisation_memberships.id [delete: cascade]
+Ref: hr_reviews.reviewer_user_id > organisation_memberships.id [delete: restrict]
+Ref: hr_certificate_requests.organisation_id > organisations.id [delete: cascade]
+Ref: hr_certificate_requests.user_id > organisation_memberships.id [delete: cascade]
+Ref: hr_certificate_requests.requested_by_id > organisation_memberships.id [delete: restrict]
+Ref: hr_certificate_requests.file_id > files.id [delete: set null]
+
+Ref: ai_requests.organisation_id > organisations.id [delete: set null]
+Ref: ai_requests.user_id > organisation_memberships.id [delete: set null]
+
+Ref: custom_fields.organisation_id > organisations.id [delete: cascade]
+Ref: workflow_definitions.organisation_id > organisations.id [delete: cascade]
+Ref: automation_rules.organisation_id > organisations.id [delete: cascade]
+Ref: integration_connections.organisation_id > organisations.id [delete: cascade]
+Ref: webhook_subscriptions.organisation_id > organisations.id [delete: cascade]
+Ref: webhook_deliveries.webhook_subscription_id > webhook_subscriptions.id [delete: cascade]
+Ref: webhook_deliveries.event_id > events.id [delete: set null]
+
+Ref: teams.organisation_id > organisations.id [delete: cascade]
+Ref: branches.organisation_id > organisations.id [delete: cascade]
+Ref: locations.organisation_id > organisations.id [delete: cascade]
+Ref: locations.branch_id > branches.id [delete: set null]
+Ref: membership_team_assignments.membership_id > organisation_memberships.id [delete: cascade]
+Ref: membership_team_assignments.team_id > teams.id [delete: cascade]

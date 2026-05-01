@@ -11,6 +11,7 @@ import {
   Search,
   Send,
   Shield,
+  Tag,
   Trash2,
   Users,
 } from "lucide-react";
@@ -90,6 +91,7 @@ export default function UsersRolesPage() {
           { id: "users", label: "Utilizatori", icon: <Users className="w-3.5 h-3.5" /> },
           { id: "roles", label: "Roluri", icon: <Shield className="w-3.5 h-3.5" /> },
           { id: "permissions", label: "Permisiuni", icon: <KeyRound className="w-3.5 h-3.5" /> },
+          { id: "categories", label: "Categorii angajați", icon: <Tag className="w-3.5 h-3.5" /> },
         ]}
         active={active}
         onChange={setActive}
@@ -103,6 +105,257 @@ export default function UsersRolesPage() {
       <TabPanel id="permissions" active={active}>
         <PermissionsTab />
       </TabPanel>
+      <TabPanel id="categories" active={active}>
+        <EmployeeCategoriesTab />
+      </TabPanel>
+    </div>
+  );
+}
+
+type EmployeeCategory = {
+  id: number;
+  name: string;
+  description: string;
+  color: string;
+  created_at: string;
+};
+
+const COLOR_PRESETS = [
+  "#a8d946",
+  "#3b82f6",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#10b981",
+  "#ec4899",
+  "#737373",
+];
+
+function EmployeeCategoriesTab() {
+  const toast = useToast();
+  const list = useCollectionList<EmployeeCategory>(
+    "settings-employee-categories",
+    "/settings/employee-categories"
+  );
+  const create = useCollectionCreate<object, EmployeeCategory>(
+    "settings-employee-categories",
+    "/settings/employee-categories"
+  );
+  const update = useCollectionUpdate<object, EmployeeCategory>(
+    "settings-employee-categories",
+    (id) => `/settings/employee-categories/${id}`
+  );
+  const remove = useCollectionDelete<{ message: string }>(
+    "settings-employee-categories",
+    (id) => `/settings/employee-categories/${id}`
+  );
+
+  const [drawerOpen, setDrawerOpen] = useState<"create" | "edit" | null>(null);
+  const [editTarget, setEditTarget] = useState<EmployeeCategory | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<EmployeeCategory | null>(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [color, setColor] = useState(COLOR_PRESETS[0]!);
+
+  useEffect(() => {
+    if (drawerOpen === "edit" && editTarget) {
+      setName(editTarget.name);
+      setDescription(editTarget.description ?? "");
+      setColor(editTarget.color || COLOR_PRESETS[0]!);
+    }
+    if (drawerOpen === "create") {
+      setName("");
+      setDescription("");
+      setColor(COLOR_PRESETS[0]!);
+    }
+  }, [drawerOpen, editTarget]);
+
+  const handleSubmit = () => {
+    if (!name.trim()) {
+      toast.error("Numele este obligatoriu.");
+      return;
+    }
+    const payload = { name: name.trim(), description: description.trim(), color };
+    if (drawerOpen === "edit" && editTarget) {
+      update.mutate(
+        { id: editTarget.id, payload },
+        {
+          onSuccess: () => {
+            toast.success("Categorie actualizată.");
+            setDrawerOpen(null);
+            setEditTarget(null);
+          },
+          onError: () => toast.error("Nu s-a putut salva."),
+        }
+      );
+    } else {
+      create.mutate(payload, {
+        onSuccess: () => {
+          toast.success("Categorie creată.");
+          setDrawerOpen(null);
+        },
+        onError: () => toast.error("Nu s-a putut crea categoria."),
+      });
+    }
+  };
+
+  if (list.isLoading) return <SkeletonList rows={3} />;
+  if (list.isError) return <ErrorState onRetry={() => list.refetch()} />;
+
+  const rows = list.data ?? [];
+
+  return (
+    <div className="space-y-4">
+      <SectionCard
+        title="Categorii angajați"
+        description="Etichete folosite pentru clasificare HR. Nu controlează permisiuni — folosit pentru raportare."
+        actions={
+          <Button size="sm" onClick={() => setDrawerOpen("create")}>
+            <Plus className="w-4 h-4" /> Categorie nouă
+          </Button>
+        }
+      >
+        {rows.length === 0 ? (
+          <EmptyArt
+            icon={Tag}
+            title="Nicio categorie"
+            description="Creează o categorie pentru a clasifica angajații."
+            action={
+              <Button size="sm" onClick={() => setDrawerOpen("create")}>
+                <Plus className="w-4 h-4" /> Categorie nouă
+              </Button>
+            }
+          />
+        ) : (
+          <ul className="divide-y divide-border -mx-2">
+            {rows.map((cat) => (
+              <li
+                key={cat.id}
+                className="px-2 py-3 flex items-center gap-3"
+              >
+                <span
+                  className="w-3 h-3 rounded-full shrink-0 border border-foreground/10"
+                  style={{ backgroundColor: cat.color }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">{cat.name}</p>
+                  {cat.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-1">
+                      {cat.description}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => {
+                    setEditTarget(cat);
+                    setDrawerOpen("edit");
+                  }}
+                >
+                  <Edit2 className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => setDeleteTarget(cat)}
+                >
+                  <Trash2 className="w-3 h-3 text-red-500" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </SectionCard>
+
+      <Drawer
+        open={drawerOpen !== null}
+        onClose={() => {
+          setDrawerOpen(null);
+          setEditTarget(null);
+        }}
+        title={
+          drawerOpen === "edit" ? "Editează categorie" : "Categorie nouă"
+        }
+        description="Categoriile sunt etichete simple pentru HR — nu controlează permisiuni."
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDrawerOpen(null);
+                setEditTarget(null);
+              }}
+            >
+              Anulează
+            </Button>
+            <Button
+              loading={create.isPending || update.isPending}
+              onClick={handleSubmit}
+            >
+              {drawerOpen === "edit" ? "Salvează" : "Creează"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <Input
+            label="Nume"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="ex: Field Employee"
+            required
+          />
+          <Textarea
+            label="Descriere"
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Optional — în ce constă această categorie."
+          />
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+              Culoare
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {COLOR_PRESETS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  aria-label={`Culoare ${c}`}
+                  className={cn(
+                    "w-7 h-7 rounded-full border-2 transition-all",
+                    color === c
+                      ? "border-foreground scale-110"
+                      : "border-transparent"
+                  )}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </Drawer>
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) {
+            remove.mutate(deleteTarget.id, {
+              onSuccess: () => {
+                toast.success("Categorie ștearsă.");
+                setDeleteTarget(null);
+              },
+              onError: () => toast.error("Nu s-a putut șterge."),
+            });
+          }
+        }}
+        title="Ștergi categoria?"
+        description={`Categoria „${deleteTarget?.name}” va fi eliminată. Userii asociați rămân fără categorie.`}
+        confirmLabel="Șterge"
+      />
     </div>
   );
 }

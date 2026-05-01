@@ -316,8 +316,8 @@ function PublicShell({
   title,
 }: {
   children: React.ReactNode;
-  token?: string;
-  title?: string;
+  token?: string | undefined;
+  title?: string | undefined;
 }) {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">

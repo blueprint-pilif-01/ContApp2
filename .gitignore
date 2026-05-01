@@ -27,12 +27,12 @@ yarn-error.log*
 *.tsbuildinfo
 .vercel/
 .turbo/
+.gocache/
+**/.gocache/
 
 # IDE/editor
 .idea/
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
+.vscode/
 
 # OS junk
 .DS_Store

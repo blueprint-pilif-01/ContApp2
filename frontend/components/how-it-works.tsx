@@ -1,39 +1,38 @@
 import { useRef } from "react";
-import { Link } from "react-router-dom";
 import { motion, useScroll, useTransform } from "motion/react";
 import { FileText, Link as LinkIcon, FileCheck, Users, Bell } from "lucide-react";
 import type { ReactNode } from "react";
 
 const steps = [
   {
-    icon: FileText,
-    title: "Creezi un șablon de contract",
-    description:
-      "Adaugi variabilele (nume client, dată, valoare) o singură dată. Șablonul rămâne salvat pentru utilizare repetată.",
-  },
-  {
     icon: Users,
-    title: "Adaugi profilul clientului",
+    title: "Îți creezi organizația și inviti echipa",
     description:
-      "Creezi dosarul clientului (PFA/SRL/PF) cu datele de contact și fiscale. Toate contractele lui vor fi legate automat de acest profil.",
+      "Pornești cu pachetul de bază gratuit. Adaugi colegi, le asignezi roluri (organisation admin, manager, employee, viewer) și categorii.",
   },
   {
     icon: LinkIcon,
-    title: "Generezi link de semnare și trimiți",
+    title: "Activezi extensiile de care ai nevoie",
     description:
-      "Cu un click generezi o invitație de semnare personalizată pentru client. Acesta semnează fără cont, direct din browser.",
+      "Din pagina de prețuri sau din admin alegi exact ce module vrei: contracte, ticketing, HR, chat, legislație, AI. Plătești doar pentru ce activezi.",
+  },
+  {
+    icon: FileText,
+    title: "Configurezi modulele activate",
+    description:
+      "Creezi șabloane de contract, definești ticketele inițiale, înregistrezi pontajul. ContApp se mulează pe procesul tău existent.",
   },
   {
     icon: FileCheck,
-    title: "Primești submission + PDF automat",
+    title: "Echipa lucrează dintr-un singur loc",
     description:
-      "Imediat după semnare primești notificare și PDF-ul contractului generat automat. Statusul se actualizează în dashboard.",
+      "Clienți, contracte semnate, tickete, concedii, chat intern și update-uri legislative — toate într-un workspace cu acces controlat.",
   },
   {
     icon: Bell,
-    title: "Fii mereu în control",
+    title: "Scalezi și ajustezi când vrei",
     description:
-      "Setezi date limită pentru declarații, plăți și reînnoiri. ContApp te avertizează din timp, fără să mai urmărești nimic manual.",
+      "Crește banda de angajați când recrutezi. Activezi noi extensii când ai nevoie. Dezactivezi pe cele neutilizate. Datele rămân.",
   },
 ];
 
@@ -82,19 +81,19 @@ export function HowItWorks(): ReactNode {
       <div className="mx-auto grid max-w-5xl gap-12 px-6 py-20 sm:py-28 lg:grid-cols-2 lg:gap-20">
         <div className="lg:sticky lg:top-48 lg:h-fit lg:self-start">
           <h2 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl lg:text-6xl scroll-mt-24" id="cum-functioneaza">
-            Cum funcționează
+            Cum configurezi
           </h2>
           <p className="mt-6 max-w-md text-lg leading-relaxed text-foreground/60">
-            De la șablon la contract semnat și dosar de client,{" "}
-            <span className="font-medium text-foreground">totul în câțiva pași.</span>
+            Pornești cu pachetul de bază, alegi extensiile,{" "}
+            <span className="font-medium text-foreground">scalezi când vrei.</span>
           </p>
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Link
-              to="/auth/register"
+            <a
+              href="#pricing"
               className="mt-8 inline-flex items-center rounded-xl bg-foreground px-6 py-3 text-sm font-semibold text-background transition-colors hover:bg-foreground/90"
             >
-              Creează cont gratuit
-            </Link>
+              Configurează pachetul
+            </a>
           </motion.div>
         </div>
 

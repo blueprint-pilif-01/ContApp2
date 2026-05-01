@@ -1,15 +1,24 @@
 /**
  * Client-side auth session store.
  *
- * The backend does not expose `/auth/me`, so we keep the authenticated
- * principal returned by `/user/login` or `/admin/login` in localStorage
+ * We keep the principal returned by the backend login endpoints in localStorage
  * and expose a tiny pub/sub so React hooks can react to login/logout.
  */
+
+export interface WorkspacePrincipal {
+  membership_id: number;
+  organisation_id: number;
+  name: string;
+  role_label: string;
+}
 
 export interface UserPrincipal {
   kind: "user";
   id: number;
   organisation_id: number | null;
+  membership_id: number | null;
+  workspace_name: string;
+  workspaces: WorkspacePrincipal[];
   type: string;
   first_name: string;
   last_name: string;

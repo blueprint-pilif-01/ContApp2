@@ -6,9 +6,10 @@
  *   suites replace it.
  */
 
-import { afterEach, beforeEach } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 
 const originalFetch = globalThis.fetch;
+vi.stubEnv("VITE_API_BASE_URL", "");
 
 beforeEach(() => {
   try {

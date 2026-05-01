@@ -34,6 +34,18 @@ export interface CreateResourceOpts {
   keyPrefix: string;
 }
 
+function unwrapResource<T>(value: T | { data: T }): T {
+  if (
+    value &&
+    typeof value === "object" &&
+    "data" in value &&
+    (value as { data?: unknown }).data !== undefined
+  ) {
+    return (value as { data: T }).data;
+  }
+  return value as T;
+}
+
 export function createResource<TRead, TCreate, TUpdate = TCreate>(
   opts: CreateResourceOpts
 ): ResourceHooks<TRead, TCreate, TUpdate> {
@@ -49,7 +61,8 @@ export function createResource<TRead, TCreate, TUpdate = TCreate>(
   const useCreate = () => {
     const qc = useQueryClient();
     return useMutation<TRead, unknown, TCreate>({
-      mutationFn: (payload) => api.post<TRead>(`/${opts.path}`, payload),
+      mutationFn: async (payload) =>
+        unwrapResource(await api.post<TRead | { data: TRead }>(`/${opts.path}`, payload)),
       onSuccess: (created) => {
         qc.invalidateQueries({ queryKey: key });
         const id = (created as { id?: number } | null)?.id;
@@ -61,8 +74,8 @@ export function createResource<TRead, TCreate, TUpdate = TCreate>(
   const useUpdate = (id: number) => {
     const qc = useQueryClient();
     return useMutation<TRead, unknown, TUpdate>({
-      mutationFn: (payload) =>
-        api.put<TRead>(`/${opts.path}/${id}`, payload),
+      mutationFn: async (payload) =>
+        unwrapResource(await api.put<TRead | { data: TRead }>(`/${opts.path}/${id}`, payload)),
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: key });
         qc.invalidateQueries({ queryKey: [...key, id] });

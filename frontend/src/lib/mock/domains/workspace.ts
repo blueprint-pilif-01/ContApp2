@@ -242,26 +242,29 @@ export const workspaceHandler: MockHandler = ({ path, method, body, query }) => 
     });
   }
 
-  if (path === "/ticketing/tasks" && method === "GET") {
+  if (path === "/ticketing/tickets" && method === "GET") {
     const status = query.get("status");
     const assignee = query.get("assignee_id");
+    const clientId = query.get("client_id");
     const rows = listStore("ticketingTasks").filter((row) => {
       if (status && String(row.status) !== status) return false;
       if (assignee && String(row.assignee_id) !== assignee) return false;
+      if (clientId && String(row.client_id ?? "") !== clientId) return false;
       return true;
     });
     return json(rows.sort(byDateDesc));
   }
-  if (path === "/ticketing/tasks" && method === "POST") {
-    const task = upsertStore(
+  if (path === "/ticketing/tickets" && method === "POST") {
+    const ticket = upsertStore(
       "ticketingTasks",
       {
-        title: body?.title ?? "Task nou",
+        title: body?.title ?? "Ticket nou",
         description: body?.description ?? "",
         status: body?.status ?? "todo",
         priority: body?.priority ?? "medium",
         owner_id: body?.owner_id ?? 1,
         assignee_id: body?.assignee_id ?? null,
+        client_id: body?.client_id ?? null,
         due_date: body?.due_date ?? new Date(Date.now() + 86400000).toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -269,9 +272,9 @@ export const workspaceHandler: MockHandler = ({ path, method, body, query }) => 
       },
       undefined
     );
-    return json(task, 201);
+    return json(ticket, 201);
   }
-  if (path.match(/^\/ticketing\/tasks\/\d+$/) && method === "PUT") {
+  if (path.match(/^\/ticketing\/tickets\/\d+$/) && method === "PUT") {
     const id = parseId(path.split("/").pop());
     if (!id) return notFound();
     const existing = getStore("ticketingTasks", id);
@@ -279,19 +282,19 @@ export const workspaceHandler: MockHandler = ({ path, method, body, query }) => 
     const updated = upsertStore("ticketingTasks", { ...existing, ...(body ?? {}) }, id);
     return json(updated);
   }
-  if (path.match(/^\/ticketing\/tasks\/\d+\/(claim|complete|refuse)$/) && method === "POST") {
+  if (path.match(/^\/ticketing\/tickets\/\d+\/(claim|complete|refuse)$/) && method === "POST") {
     const [, , , idRaw, action] = path.split("/");
     const id = parseId(idRaw);
     if (!id) return notFound();
-    const task = getStore("ticketingTasks", id);
-    if (!task) return notFound();
+    const ticket = getStore("ticketingTasks", id);
+    if (!ticket) return notFound();
     const status =
       action === "claim" ? "in_progress" : action === "complete" ? "done" : "todo";
     const assigneeId = action === "refuse" ? null : body?.assignee_id ?? 1;
     const next = upsertStore(
       "ticketingTasks",
       {
-        ...task,
+        ...ticket,
         status,
         assignee_id: assigneeId,
         updated_at: new Date().toISOString(),
@@ -341,12 +344,12 @@ export const workspaceHandler: MockHandler = ({ path, method, body, query }) => 
     );
     return json(msg, 201);
   }
-  if (path === "/chat/derive-task" && method === "POST") {
+  if (path === "/chat/derive-ticket" && method === "POST") {
     const sourceText = String(body?.message ?? "");
-    const task = upsertStore(
+    const ticket = upsertStore(
       "ticketingTasks",
       {
-        title: sourceText.slice(0, 70) || "Task derivat din chat",
+        title: sourceText.slice(0, 70) || "Ticket derivat din chat",
         description: `Creat automat din chat: ${sourceText}`,
         status: "todo",
         priority: "medium",
@@ -359,7 +362,36 @@ export const workspaceHandler: MockHandler = ({ path, method, body, query }) => 
       },
       undefined
     );
-    return json({ task, confirmation: `Am creat taskul #${task.id}.` }, 201);
+    return json({ ticket, confirmation: `Am creat ticketul #${ticket.id}.` }, 201);
+  }
+
+  // ── Employee categories (Sec.4 default feature) ─────────────────────────
+  if (path === "/settings/employee-categories" && method === "GET") {
+    return json(listStore("employeeCategories").sort((a, b) => Number(a.id) - Number(b.id)));
+  }
+  if (path === "/settings/employee-categories" && method === "POST") {
+    const name = String(body?.name ?? "").trim();
+    if (!name) return json({ message: "Numele este obligatoriu." }, 400);
+    return json(
+      upsertStore("employeeCategories", {
+        name,
+        description: String(body?.description ?? ""),
+        color: String(body?.color ?? "#a8d946"),
+        created_at: new Date().toISOString(),
+      }),
+      201
+    );
+  }
+  if (path.match(/^\/settings\/employee-categories\/\d+$/) && method === "PUT") {
+    const id = parseId(path.split("/").pop());
+    if (!id || !getStore("employeeCategories", id)) return notFound();
+    return json(upsertStore("employeeCategories", body ?? {}, id));
+  }
+  if (path.match(/^\/settings\/employee-categories\/\d+$/) && method === "DELETE") {
+    const id = parseId(path.split("/").pop());
+    if (!id) return notFound();
+    const ok = stores.employeeCategories.delete(id);
+    return ok ? json({ message: "Categorie ștearsă." }) : notFound();
   }
 
   if (path === "/settings/users" && method === "GET") return json(listStore("users"));

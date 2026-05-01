@@ -13,7 +13,7 @@ import {
   FileText,
   Folder,
   StickyNote,
-  CheckSquare,
+  KanbanSquare,
   Hash,
   Activity,
   Send,
@@ -40,7 +40,7 @@ import { isApiError } from "../../../lib/api";
 import { ContractsTab } from "./tabs/ContractsTab";
 import { DossierTab } from "./tabs/DossierTab";
 import { NotesTab } from "./tabs/NotesTab";
-import { TasksTab } from "./tabs/TasksTab";
+import { TicketsTab } from "./tabs/TicketsTab";
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -58,8 +58,12 @@ export default function ClientDetailPage() {
   const invites = useCollectionList<ClientInvite>("client-invites", "/contracts/invites");
   const submissions = useCollectionList<ClientSubmission>("client-submissions", "/contracts/submissions");
 
+  const isCompany = (client as { client_type?: string } | undefined)?.client_type === "company";
+  const companyName = (client as { company_name?: string } | undefined)?.company_name ?? "";
   const fullName = client
-    ? `${client.first_name} ${client.last_name}`.trim()
+    ? isCompany && companyName
+      ? companyName
+      : `${client.first_name} ${client.last_name}`.trim()
     : "";
 
   useEffect(() => {
@@ -179,7 +183,7 @@ export default function ClientDetailPage() {
     },
     { id: "dossier", label: "Dosar", icon: <Folder className="w-4 h-4" /> },
     { id: "notes", label: "Note", icon: <StickyNote className="w-4 h-4" /> },
-    { id: "tasks", label: "Sarcini", icon: <CheckSquare className="w-4 h-4" /> },
+    { id: "tickets", label: "Tickete", icon: <KanbanSquare className="w-4 h-4" /> },
     { id: "activity", label: "Activitate", icon: <Activity className="w-4 h-4" /> },
   ];
 
@@ -211,7 +215,7 @@ export default function ClientDetailPage() {
     <div>
       <PageHeader
         title={fullName || `Client #${numericId}`}
-        description={`ID #${numericId} · CNP ${client.cnp}`}
+        description={`ID #${numericId} · ${isCompany ? "CUI" : "CNP"} ${client.cnp}`}
         actions={
           <div className="flex gap-2">
             {editing ? (
@@ -385,8 +389,8 @@ export default function ClientDetailPage() {
       <TabPanel id="notes" active={activeTab}>
         <NotesTab clientId={numericId} />
       </TabPanel>
-      <TabPanel id="tasks" active={activeTab}>
-        <TasksTab clientId={numericId} />
+      <TabPanel id="tickets" active={activeTab}>
+        <TicketsTab clientId={numericId} />
       </TabPanel>
       <TabPanel id="activity" active={activeTab}>
         <div className="bg-frame border border-border rounded-2xl p-5 mt-4">

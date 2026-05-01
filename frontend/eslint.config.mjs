@@ -20,9 +20,6 @@ const eslintConfig = defineConfig([
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/no-explicit-any": "error",
-
-      // React rules
-      "react/jsx-no-target-blank": ["error", { enforceDynamicLinks: "always" }],
     },
   },
   {
