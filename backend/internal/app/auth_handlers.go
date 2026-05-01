@@ -46,6 +46,11 @@ type workspaceResponse struct {
 	RoleLabel      string `json:"role_label"`
 }
 
+const (
+	accountAccessCookieName = "account_access_token"
+	adminAccessCookieName   = "admin_access_token"
+)
+
 func (a *App) loginAccount(w http.ResponseWriter, r *http.Request) {
 	var input loginRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
@@ -91,6 +96,7 @@ func (a *App) loginAccount(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not create refresh session")
 		return
 	}
+	http.SetCookie(w, a.accessCookie(accountAccessCookieName, token))
 	_ = a.Repo.UpdateAccountLastLogin(r.Context(), account.ID)
 	a.Logger.Info("account login succeeded", "account_id", account.ID, "email", account.Email, "organisation_id", selected.OrganisationID, "membership_id", selected.MembershipID, "remote_addr", r.RemoteAddr)
 
@@ -135,6 +141,7 @@ func (a *App) loginAdmin(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not create refresh session")
 		return
 	}
+	http.SetCookie(w, a.accessCookie(adminAccessCookieName, token))
 	a.Logger.Info("admin login succeeded", "admin_id", admin.ID, "email", admin.Email, "remote_addr", r.RemoteAddr)
 
 	httpx.JSON(w, http.StatusOK, loginResponse{
@@ -204,6 +211,7 @@ func (a *App) refreshToken(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusInternalServerError, "could not create refresh session")
 			return
 		}
+		http.SetCookie(w, a.accessCookie(accountAccessCookieName, token))
 		httpx.JSON(w, http.StatusOK, loginResponse{
 			AccessToken: token,
 			TokenType:   "Bearer",
@@ -223,6 +231,7 @@ func (a *App) refreshToken(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusInternalServerError, "could not create refresh session")
 			return
 		}
+		http.SetCookie(w, a.accessCookie(adminAccessCookieName, token))
 		httpx.JSON(w, http.StatusOK, loginResponse{
 			AccessToken: token,
 			TokenType:   "Bearer",
@@ -261,6 +270,8 @@ func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, a.expiredRefreshCookie())
+	http.SetCookie(w, a.expiredAccessCookie(accountAccessCookieName))
+	http.SetCookie(w, a.expiredAccessCookie(adminAccessCookieName))
 	if logoutRecorded {
 		a.Logger.Info("logout succeeded", "remote_addr", r.RemoteAddr)
 	}
@@ -339,6 +350,7 @@ func (a *App) switchOrganisation(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not create refresh session")
 		return
 	}
+	http.SetCookie(w, a.accessCookie(accountAccessCookieName, token))
 
 	httpx.JSON(w, http.StatusOK, loginResponse{
 		AccessToken: token,
@@ -493,6 +505,34 @@ func (a *App) expiredRefreshCookie() *http.Cookie {
 		Name:     a.Config.RefreshCookieName,
 		Value:    "",
 		Path:     a.Config.RefreshCookiePath,
+		Domain:   a.Config.RefreshCookieDomain,
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   a.Config.RefreshCookieSecure,
+		SameSite: http.SameSiteLaxMode,
+	}
+}
+
+func (a *App) accessCookie(name, value string) *http.Cookie {
+	return &http.Cookie{
+		Name:     name,
+		Value:    value,
+		Path:     a.Config.APIBasePath,
+		Domain:   a.Config.RefreshCookieDomain,
+		Expires:  time.Now().UTC().Add(a.Config.AccessTokenTTL),
+		MaxAge:   int(a.Config.AccessTokenTTL.Seconds()),
+		HttpOnly: true,
+		Secure:   a.Config.RefreshCookieSecure,
+		SameSite: http.SameSiteLaxMode,
+	}
+}
+
+func (a *App) expiredAccessCookie(name string) *http.Cookie {
+	return &http.Cookie{
+		Name:     name,
+		Value:    "",
+		Path:     a.Config.APIBasePath,
 		Domain:   a.Config.RefreshCookieDomain,
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,

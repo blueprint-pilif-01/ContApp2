@@ -13,7 +13,7 @@ const claimsContextKey authContextKey = "claims"
 
 func (a *App) requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := bearerToken(r)
+		token := a.accessTokenFromRequest(r)
 		if token == "" {
 			a.Logger.Warn("auth rejected", "reason", "missing_bearer_token", "method", r.Method, "path", r.URL.Path, "remote_addr", r.RemoteAddr)
 			httpx.Error(w, http.StatusUnauthorized, "missing bearer token")
@@ -57,6 +57,22 @@ func (a *App) requireAuth(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), claimsContextKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func (a *App) accessTokenFromRequest(r *http.Request) string {
+	if token := bearerToken(r); token != "" {
+		return token
+	}
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return ""
+	}
+	if cookie, err := r.Cookie(accountAccessCookieName); err == nil && cookie.Value != "" {
+		return cookie.Value
+	}
+	if cookie, err := r.Cookie(adminAccessCookieName); err == nil && cookie.Value != "" {
+		return cookie.Value
+	}
+	return ""
 }
 
 func authSubjectID(claims *auth.Claims) int64 {
