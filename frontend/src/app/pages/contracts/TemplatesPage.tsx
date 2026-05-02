@@ -21,8 +21,7 @@ type Template = {
   id: number;
   name: string;
   contract_type: string;
-  user_id: number;
-  organisation_id: number;
+  content_json?: Record<string, unknown> | null;
   date_added: string;
 };
 
@@ -155,8 +154,10 @@ export default function TemplatesPage() {
                 create.mutate({
                   name,
                   contract_type: type,
-                  user_id: 1,
-                  organisation_id: 1,
+                  content_json: {
+                    type: "doc",
+                    content: [{ type: "paragraph" }],
+                  },
                 });
                 setName("");
                 setCreating(false);

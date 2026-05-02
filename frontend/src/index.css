@@ -3,27 +3,35 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #f5f5f5;
-  --foreground: #0a0a0a;
-  --hero-bg: linear-gradient(160deg, #f0fdf4 0%, #dcfce7 25%, #bbf7d0 50%, #86efac 70%, #a8d946 100%);
-  --muted: #f5f5f5;
-  --muted-foreground: #737373;
-  --border: #e5e5e5;
-  --ring: #0066ff;
+  --background: #f7f8f5;
+  --foreground: #17201d;
+  --hero-bg:
+    radial-gradient(circle at 16% 82%, rgba(53, 151, 177, 0.22), transparent 34%),
+    radial-gradient(circle at 82% 20%, rgba(31, 122, 95, 0.22), transparent 36%),
+    radial-gradient(circle at 66% 92%, rgba(154, 199, 90, 0.18), transparent 32%),
+    linear-gradient(145deg, #fbfcf8 0%, #eef8f2 42%, #e8f4fb 100%);
+  --muted: #eef2ed;
+  --muted-foreground: #5f6b65;
+  --border: #dce3dd;
+  --ring: #1f7a5f;
   --frame: #ffffff;
-  --accent: #a8d946;
-  --card-primary: #a8d946;
-  --card-secondary: #e8f5c8;
-  --card-foreground: #171717;
-  --card-foreground-muted: #525252;
-  --phone-screen: #f5f5f5;
+  --accent: #1f7a5f;
+  --accent-contrast: #ffffff;
+  --card-primary: #dcece1;
+  --card-secondary: #edf3f6;
+  --card-foreground: #17201d;
+  --card-foreground-muted: #53615b;
+  --phone-screen: #f7f8f5;
+  --footer-bg: linear-gradient(135deg, #1f7a5f 0%, #2f8f68 54%, #4f9b76 100%);
+  --footer-foreground: #f8faf7;
+  --footer-muted: rgba(248, 250, 247, 0.68);
   --font-geist-sans: "Geist Variable", system-ui, -apple-system, sans-serif;
   --font-geist-mono: "Geist Mono Variable", ui-monospace, monospace;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --ai-grad-1: #65a30d;
-  --ai-grad-2: #a8d946;
-  --ai-grad-3: #ecfccb;
+  --ai-grad-1: #1f7a5f;
+  --ai-grad-2: #4f9b76;
+  --ai-grad-3: #dcece1;
 }
 
 .dark {
@@ -36,11 +44,15 @@
   --ring: #3b82f6;
   --frame: #000;
   --accent: #a8d946;
+  --accent-contrast: #0f1410;
   --card-primary: #a8d946;
   --card-secondary: #2a3a1a;
   --card-foreground: #fafafa;
   --card-foreground-muted: #d4d4d4;
   --phone-screen: #f5f5f5;
+  --footer-bg: linear-gradient(135deg, #a8d946 0%, #84cc16 100%);
+  --footer-foreground: #0f1410;
+  --footer-muted: rgba(15, 20, 16, 0.62);
   --ai-grad-1: #84cc16;
   --ai-grad-2: #a8d946;
   --ai-grad-3: #4d7c0f;
@@ -55,6 +67,7 @@
   --color-border: var(--border);
   --color-ring: var(--ring);
   --color-accent: var(--accent);
+  --color-accent-contrast: var(--accent-contrast);
   --color-card-primary: var(--card-primary);
   --color-card-secondary: var(--card-secondary);
   --color-card-foreground: var(--card-foreground);
@@ -433,5 +446,30 @@ body {
     opacity: 1 !important;
     filter: none !important;
     transform: none !important;
+  }
+}
+
+/* App sidebar: soft pulse halo behind active route dot. */
+@keyframes contapp-sidebar-node-glow {
+  0%,
+  100% {
+    opacity: 0.48;
+    transform: scale(0.88);
+  }
+  50% {
+    opacity: 0.88;
+    transform: scale(1.05);
+  }
+}
+
+.contapp-sidebar-node-glow {
+  animation: contapp-sidebar-node-glow 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contapp-sidebar-node-glow {
+    animation: none;
+    opacity: 0.76 !important;
+    transform: scale(1);
   }
 }

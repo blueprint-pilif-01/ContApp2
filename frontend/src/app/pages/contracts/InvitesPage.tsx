@@ -35,7 +35,7 @@ type Invite = {
   id: number;
   template_id: number;
   client_id: number;
-  user_id: number;
+  user_id?: number;
   remarks: string;
   expiration_date: string;
   status: InviteStatus;
@@ -45,7 +45,14 @@ type Invite = {
 };
 
 type Template = { id: number; name: string; contract_type: string };
-type ClientRow = { id: number; first_name: string; last_name: string; email: string };
+type ClientRow = {
+  id: number;
+  client_type?: "person" | "company";
+  first_name?: string | null;
+  last_name?: string | null;
+  company_name?: string | null;
+  email: string;
+};
 type InviteSendResponse = {
   message?: string;
   invite?: Invite;
@@ -60,6 +67,13 @@ const pipeline: { state: InviteStatus; label: string; dot: string; chip: string 
   { state: "expired", label: "Expirat", dot: "bg-red-500", chip: "bg-red-500/12 text-red-600 dark:text-red-400" },
   { state: "revoked", label: "Revocat", dot: "bg-amber-500", chip: "bg-amber-500/12 text-amber-700 dark:text-amber-300" },
 ];
+
+function clientDisplay(client: ClientRow): string {
+  if (client.client_type === "company" && client.company_name) {
+    return client.company_name;
+  }
+  return `${client.first_name ?? ""} ${client.last_name ?? ""}`.trim() || `Client #${client.id}`;
+}
 
 export default function InvitesPage() {
   const toast = useToast();
@@ -114,14 +128,14 @@ export default function InvitesPage() {
   }));
   const clientOptions = (clients.data ?? []).map((c) => ({
     value: String(c.id),
-    label: `${c.first_name} ${c.last_name} · ${c.email}`,
+    label: `${clientDisplay(c)} · ${c.email}`,
   }));
 
   const canCreate = !!templateId && !!clientId && !!expiration;
 
   const clientName = (clientIdValue: number) => {
     const client = clients.data?.find((c) => c.id === clientIdValue);
-    return client ? `${client.first_name} ${client.last_name}` : `Client #${clientIdValue}`;
+    return client ? clientDisplay(client) : `Client #${clientIdValue}`;
   };
 
   const templateName = (templateIdValue: number) => {
@@ -137,12 +151,10 @@ export default function InvitesPage() {
     create.mutate(
       {
         template_id: Number(templateId),
-        user_id: 1,
         client_id: Number(clientId),
         remarks: remarks.trim(),
         expiration_date: new Date(expiration).toISOString(),
         status: "draft",
-        public_token: `tok-${Date.now()}`,
       },
       {
         onSuccess: () => {
@@ -195,12 +207,10 @@ export default function InvitesPage() {
     create.mutate(
       {
         template_id: invite.template_id,
-        user_id: invite.user_id,
         client_id: invite.client_id,
         remarks: invite.remarks,
         expiration_date: new Date(Date.now() + 10 * 86400000).toISOString(),
         status: "draft",
-        public_token: `tok-${Date.now()}`,
       },
       {
         onSuccess: () => toast.success("Solicitare duplicată ca draft."),
@@ -313,9 +323,7 @@ export default function InvitesPage() {
                       className="inline-flex items-center gap-1 text-foreground/70 hover:text-foreground"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigator.clipboard.writeText(
-                          `${window.location.origin}/public/sign/tok-${invite.id}`
-                        );
+                        navigator.clipboard.writeText(publicUrl(invite));
                       }}
                     >
                       <Copy className="w-3 h-3" /> Link
@@ -348,7 +356,7 @@ export default function InvitesPage() {
                 <p className="text-xs text-muted-foreground">{fmtRelative(invite.date_added)}</p>
               </div>
               <a
-                href={`/public/sign/tok-${invite.id}`}
+                href={publicUrl(invite)}
                 target="_blank"
                 rel="noreferrer"
                 className="text-xs inline-flex items-center gap-1 text-foreground/70 hover:text-foreground"

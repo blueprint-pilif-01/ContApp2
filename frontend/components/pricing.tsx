@@ -16,6 +16,7 @@ import {
   type LandingExtension,
   type LandingExtensionKey,
 } from "@/lib/config";
+import { ConnectedDots } from "./connected-dots";
 
 const ease = [0.23, 1, 0.32, 1] as const;
 
@@ -99,9 +100,17 @@ export function Pricing() {
   return (
     <section
       id="pricing"
-      className="w-full bg-background px-6 py-20 sm:py-28 scroll-mt-24"
+      className="relative w-full bg-background px-6 py-20 sm:py-28 scroll-mt-24 overflow-hidden"
     >
-      <div className="mx-auto max-w-5xl">
+      {/* Ambient network — full-bleed background layer */}
+      <div
+        className="pointer-events-none absolute inset-0 text-accent/12 dark:text-accent/16 max-[850px]:hidden"
+        aria-hidden="true"
+      >
+        <ConnectedDots variant="weave" />
+      </div>
+
+      <div className="relative mx-auto max-w-5xl">
         {/* ── Header ────────────────────────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -205,7 +214,7 @@ export function Pricing() {
                       <span
                         className={`mt-0.5 inline-flex w-6 h-6 rounded-md border-2 items-center justify-center shrink-0 transition-colors ${
                           isSelected
-                            ? "bg-accent border-accent text-black"
+                            ? "bg-accent border-accent text-accent-contrast"
                             : "border-border bg-background"
                         }`}
                       >

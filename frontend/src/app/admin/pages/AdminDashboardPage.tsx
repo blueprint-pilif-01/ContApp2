@@ -17,7 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useCollectionItem } from "../../../hooks/useCollection";
-import { usePrincipal } from "../../../hooks/useMe";
+import { useAdminMe } from "../../../hooks/useMe";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { StatCard } from "../../../components/ui/StatCard";
 import { SectionCard } from "../../../components/ui/SectionCard";
@@ -145,9 +145,8 @@ const QUICK_LINKS: QuickLinkGroup[] = [
 ];
 
 export default function AdminDashboardPage() {
-  const principal = usePrincipal();
-  const adminFirstName =
-    principal?.kind === "admin" ? principal.first_name : "";
+  const { data: principal } = useAdminMe();
+  const adminFirstName = principal?.first_name ?? "";
   const overview = useCollectionItem<AdminOverview>(
     "admin-dashboard",
     "/admin/dashboard"

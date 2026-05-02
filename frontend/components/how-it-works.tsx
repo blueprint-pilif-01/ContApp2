@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { motion, useScroll, useTransform } from "motion/react";
 import { FileText, Link as LinkIcon, FileCheck, Users, Bell } from "lucide-react";
 import type { ReactNode } from "react";
+import { ConnectedDots } from "./connected-dots";
 
 const steps = [
   {
@@ -48,7 +49,7 @@ function StepItem({
   return (
     <div className={`relative flex gap-5 ${isLast ? "" : "pb-44"}`}>
       <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent" aria-hidden="true">
-        <Icon className="h-5 w-5 text-black" strokeWidth={2} />
+        <Icon className="h-5 w-5 text-accent-contrast" strokeWidth={2} />
       </div>
 
       <div className="pt-1">
@@ -76,8 +77,16 @@ export function HowItWorks(): ReactNode {
   return (
     <section
       ref={containerRef}
-      className="relative w-full bg-background"
+      className="relative w-full bg-background overflow-hidden"
     >
+      {/* Ambient network — full-bleed background layer */}
+      <div
+        className="pointer-events-none absolute inset-0 text-accent/12 dark:text-accent/16 max-[850px]:hidden"
+        aria-hidden="true"
+      >
+        <ConnectedDots variant="grove" />
+      </div>
+
       <div className="mx-auto grid max-w-5xl gap-12 px-6 py-20 sm:py-28 lg:grid-cols-2 lg:gap-20">
         <div className="lg:sticky lg:top-48 lg:h-fit lg:self-start">
           <h2 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl lg:text-6xl scroll-mt-24" id="cum-functioneaza">

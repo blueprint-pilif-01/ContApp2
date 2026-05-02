@@ -251,7 +251,7 @@ export function ContactOffer() {
                           <span
                             className={`mt-0.5 inline-flex w-5 h-5 rounded-md border-2 items-center justify-center shrink-0 ${
                               isSelected
-                                ? "bg-accent border-accent text-black"
+                                ? "bg-accent border-accent text-accent-contrast"
                                 : "border-border bg-background"
                             }`}
                           >

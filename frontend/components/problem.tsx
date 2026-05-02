@@ -108,7 +108,7 @@ export function Problem(): ReactNode {
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="shrink-0">
             <a
               href="#pricing"
-              className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-black hover:bg-accent/90 transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent/90 transition-colors whitespace-nowrap"
             >
               Configurează pachetul
               <ArrowRight className="w-4 h-4" />

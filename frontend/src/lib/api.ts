@@ -12,6 +12,7 @@
 import {
   clearSession,
   getAccessToken,
+  type SessionActor,
   updateAccessToken,
 } from "./session";
 
@@ -35,18 +36,18 @@ function url(path: string): string {
   return `${BASE_URL}${path}`;
 }
 
-/** Single in-flight refresh shared across concurrent 401s. */
-let refreshInflight: Promise<string | null> | null = null;
+/** Single in-flight refresh shared across concurrent 401s per actor. */
+const refreshInflight: Partial<Record<SessionActor, Promise<string | null>>> = {};
 
-async function refreshAccessToken(): Promise<string | null> {
-  if (refreshInflight) return refreshInflight;
+async function refreshAccessToken(actor: SessionActor): Promise<string | null> {
+  if (refreshInflight[actor]) return refreshInflight[actor]!;
 
-  refreshInflight = (async () => {
+  refreshInflight[actor] = (async () => {
     try {
       const res = await fetch(url("/auth/refresh-token"), {
         method: "GET",
         credentials: "include",
-        headers: { Accept: "application/json" },
+        headers: { Accept: "application/json", "X-ContApp-Actor": actor },
       });
       if (!res.ok) return null;
       const body = (await res.json().catch(() => null)) as
@@ -54,16 +55,16 @@ async function refreshAccessToken(): Promise<string | null> {
         | null;
       const token = body?.access_token;
       if (!token) return null;
-      updateAccessToken(token);
+      updateAccessToken(token, actor);
       return token;
     } catch {
       return null;
     } finally {
-      refreshInflight = null;
+      delete refreshInflight[actor];
     }
   })();
 
-  return refreshInflight;
+  return refreshInflight[actor]!;
 }
 
 async function parseBody(res: Response): Promise<unknown> {
@@ -98,10 +99,27 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
   /** If true, do not attach Authorization / attempt refresh (for login endpoints). */
   skipAuth?: boolean;
+  /** Force the browser session namespace used for this call. Null means public. */
+  actor?: SessionActor | null;
+}
+
+function inferActor(path: string): SessionActor | null {
+  if (path.startsWith("/public/") || path.startsWith("/portal/")) return null;
+  if (path.startsWith("/auth/admin")) return "admin";
+  if (path.startsWith("/auth/user")) return "user";
+  if (path.startsWith("/admin/")) return "admin";
+  if (
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/admin")
+  ) {
+    return "admin";
+  }
+  return "user";
 }
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const { body, skipAuth, headers, ...rest } = opts;
+  const { body, skipAuth, actor: forcedActor, headers, ...rest } = opts;
+  const actor = skipAuth ? null : forcedActor === undefined ? inferActor(path) : forcedActor;
 
   const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
   const baseHeaders: Record<string, string> = {
@@ -118,7 +136,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   else if (body !== undefined) init.body = JSON.stringify(body);
 
   const doFetch = async (): Promise<Response> => {
-    const token = skipAuth ? null : getAccessToken();
+    const token = actor ? getAccessToken(actor) : null;
     const finalHeaders: Record<string, string> = {
       ...(init.headers as Record<string, string>),
     };
@@ -128,12 +146,12 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
   let res = await doFetch();
 
-  if (res.status === 401 && !skipAuth) {
-    const refreshed = await refreshAccessToken();
+  if (res.status === 401 && actor) {
+    const refreshed = await refreshAccessToken(actor);
     if (refreshed) {
       res = await doFetch();
     } else {
-      clearSession();
+      clearSession(actor);
       throw buildError(res, await parseBody(res));
     }
   }
@@ -143,22 +161,26 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   return body2 as T;
 }
 
-function makeClient(prefix: string) {
+function makeClient(prefix: string, actor?: SessionActor | null) {
   const p = (path: string) =>
     path.startsWith("/") ? `${prefix}${path}` : `${prefix}/${path}`;
+  const withActor = (opts?: Omit<RequestOptions, "body" | "method">) => ({
+    ...(actor !== undefined ? { actor } : {}),
+    ...(opts ?? {}),
+  });
   return {
     get: <T>(path: string, opts?: Omit<RequestOptions, "body" | "method">) =>
-      request<T>(p(path), { ...opts, method: "GET" }),
+      request<T>(p(path), { ...withActor(opts), method: "GET" }),
     post: <T>(path: string, body?: unknown, opts?: Omit<RequestOptions, "body" | "method">) =>
-      request<T>(p(path), { ...opts, method: "POST", body }),
+      request<T>(p(path), { ...withActor(opts), method: "POST", body }),
     put: <T>(path: string, body?: unknown, opts?: Omit<RequestOptions, "body" | "method">) =>
-      request<T>(p(path), { ...opts, method: "PUT", body }),
+      request<T>(p(path), { ...withActor(opts), method: "PUT", body }),
     patch: <T>(path: string, body?: unknown, opts?: Omit<RequestOptions, "body" | "method">) =>
-      request<T>(p(path), { ...opts, method: "PATCH", body }),
+      request<T>(p(path), { ...withActor(opts), method: "PATCH", body }),
     delete: <T>(path: string, opts?: Omit<RequestOptions, "body" | "method">) =>
-      request<T>(p(path), { ...opts, method: "DELETE" }),
+      request<T>(p(path), { ...withActor(opts), method: "DELETE" }),
     upload: <T>(path: string, data: FormData, opts?: Omit<RequestOptions, "body" | "method">) =>
-      request<T>(p(path), { ...opts, method: "POST", body: data }),
+      request<T>(p(path), { ...withActor(opts), method: "POST", body: data }),
   };
 }
 
@@ -177,10 +199,10 @@ export const api = {
  * URL. We keep `userApi` as a separate symbol so call sites stay expressive
  * even though it shares the same prefix as `adminApi`.
  */
-export const userApi = makeClient("");
+export const userApi = makeClient("", "user");
 
 /** Authenticated calls for the platform admin panel — same surface as `userApi`. */
-export const adminApi = makeClient("");
+export const adminApi = makeClient("", "admin");
 
 /** Returns the right actor client based on the session. */
 export function actorApi(kind: "user" | "admin") {

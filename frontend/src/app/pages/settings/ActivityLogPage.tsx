@@ -31,7 +31,7 @@ const actionStyles: Record<string, { label: string; variant: "success" | "warnin
 const entityLabels: Record<string, string> = {
   client: "Client",
   contract: "Contract",
-  task: "Task",
+  task: "Ticket",
   document: "Document",
   hr_leave: "Concediu",
   message: "Mesaj",
@@ -117,7 +117,7 @@ export default function ActivityLogPage() {
             <option value="all">Toate entitățile</option>
             <option value="client">Clienți</option>
             <option value="contract">Contracte</option>
-            <option value="task">Taskuri</option>
+            <option value="task">Tickete</option>
             <option value="document">Documente</option>
             <option value="hr_leave">Concedii</option>
           </select>

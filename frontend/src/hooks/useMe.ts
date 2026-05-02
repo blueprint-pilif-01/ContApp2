@@ -8,6 +8,7 @@ import {
   type AdminPrincipal,
   type Principal,
   type Session,
+  type SessionActor,
   type UserPrincipal,
   type WorkspacePrincipal,
 } from "../lib/session";
@@ -67,7 +68,7 @@ export async function loginUser(credentials: LoginCredentials): Promise<UserPrin
     permissions: ["*"],
   };
   const session: Session = { accessToken: res.access_token, principal };
-  setSession(session);
+  setSession(session, "user");
   return principal;
 }
 
@@ -86,36 +87,50 @@ export async function loginAdmin(credentials: LoginCredentials): Promise<AdminPr
     permissions: ["*"],
   };
   const session: Session = { accessToken: res.access_token, principal };
-  setSession(session);
+  setSession(session, "admin");
   return principal;
 }
 
 /** End the session — fires `/auth/logout` best-effort and clears local state. */
-export async function logout(): Promise<void> {
+function inferLogoutActor(): SessionActor {
+  if (
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/admin")
+  ) {
+    return "admin";
+  }
+  return "user";
+}
+
+export async function logout(actor: SessionActor = inferLogoutActor()): Promise<void> {
   try {
-    await api.post("/auth/logout");
+    await api.post("/auth/logout", undefined, { actor });
   } catch (e) {
     // Non-fatal: 401 here just means the token already expired server-side.
     if (!(isApiError(e) && e.status === 401)) {
       // swallow – we clear locally regardless
     }
   } finally {
-    clearSession();
+    clearSession(actor);
   }
 }
 
-function getSnapshot(): Principal | null {
-  return getSession()?.principal ?? null;
+function getSnapshot(actor?: SessionActor): Principal | null {
+  return getSession(actor)?.principal ?? null;
 }
 
 /** Subscribe to the current principal, regardless of kind. */
-export function usePrincipal(): Principal | null {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+export function usePrincipal(actor?: SessionActor): Principal | null {
+  return useSyncExternalStore(
+    subscribe,
+    () => getSnapshot(actor),
+    () => getSnapshot(actor)
+  );
 }
 
 /** Returns the authenticated user, or null if the session is for an admin / empty. */
 export function useMe(): { data: UserPrincipal | null; isLoading: false; isError: boolean } {
-  const p = usePrincipal();
+  const p = usePrincipal("user");
   const data = p?.kind === "user" ? p : null;
   return { data, isLoading: false, isError: !data };
 }
@@ -126,12 +141,12 @@ export function useAdminMe(): {
   isLoading: false;
   isError: boolean;
 } {
-  const p = usePrincipal();
+  const p = usePrincipal("admin");
   const data = p?.kind === "admin" ? p : null;
   return { data, isLoading: false, isError: !data };
 }
 
 /** Returns true if the session principal has the given permission. */
-export function hasPermission(permission: string): boolean {
-  return getSession()?.principal.permissions.includes(permission) ?? false;
+export function hasPermission(permission: string, actor?: SessionActor): boolean {
+  return getSession(actor)?.principal.permissions.includes(permission) ?? false;
 }

@@ -112,9 +112,9 @@ export default function ReportsPage() {
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard icon={Users} label="CLIENȚI ACTIVI" value={summary.totalClients} trend="up" trendValue={`+${summary.newClients} noi`} />
-        <StatCard icon={BarChart3} label="TASKURI FINALIZATE" value={summary.tasksCompleted} trendValue="în perioadă" />
+        <StatCard icon={BarChart3} label="TICKETE FINALIZATE" value={summary.tasksCompleted} trendValue="în perioadă" />
         <StatCard icon={FileCheck} label="CONTRACTE SEMNATE" value={summary.contractsSigned} trend="up" trendValue="în perioadă" />
-        <StatCard icon={TrendingUp} label="RATĂ COMPLETARE" value={`${summary.tasksCompleted ? Math.round((summary.tasksCompleted / Math.max(1, data.tasks_trend.reduce((a, c) => a + c.created, 0))) * 100) : 0}%`} trendValue="tasks" />
+        <StatCard icon={TrendingUp} label="RATĂ COMPLETARE" value={`${summary.tasksCompleted ? Math.round((summary.tasksCompleted / Math.max(1, data.tasks_trend.reduce((a, c) => a + c.created, 0))) * 100) : 0}%`} trendValue="tickete" />
       </div>
 
       {/* Charts */}
@@ -142,7 +142,7 @@ export default function ReportsPage() {
           )}
         </SectionCard>
 
-        <SectionCard title="Taskuri" description="Taskuri create vs finalizate">
+        <SectionCard title="Tickete" description="Tickete create vs finalizate">
           {data.tasks_trend.length > 0 ? (
             <div>
               <LineChartSVG
@@ -178,7 +178,7 @@ export default function ReportsPage() {
           )}
         </SectionCard>
 
-        <SectionCard title="Productivitate echipă" description="Taskuri per membru">
+        <SectionCard title="Productivitate echipă" description="Tickete per membru">
           {data.team_productivity.length > 0 ? (
             <div className="space-y-3">
               {data.team_productivity.map((m) => (

@@ -17,6 +17,7 @@ import {
   Hash,
   Activity,
   Send,
+  Users,
 } from "lucide-react";
 import {
   useClient,
@@ -29,6 +30,7 @@ import { PageHeader } from "../../../components/ui/PageHeader";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Tabs, TabPanel } from "../../../components/ui/Tabs";
+import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { ConfirmModal } from "../../../components/ui/ConfirmModal";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { ErrorState } from "../../../components/ui/EmptyState";
@@ -60,10 +62,11 @@ export default function ClientDetailPage() {
 
   const isCompany = (client as { client_type?: string } | undefined)?.client_type === "company";
   const companyName = (client as { company_name?: string } | undefined)?.company_name ?? "";
+  const identifier = client ? clientIdentifier(client) : "—";
   const fullName = client
     ? isCompany && companyName
       ? companyName
-      : `${client.first_name} ${client.last_name}`.trim()
+      : `${client.first_name ?? ""} ${client.last_name ?? ""}`.trim()
     : "";
 
   useEffect(() => {
@@ -106,38 +109,66 @@ export default function ClientDetailPage() {
   }, [clientInvites, clientSubmissions]);
 
   const [form, setForm] = useState<ClientUpsertRequest>({
-    cnp: 0,
-    user_id: 0,
-    organisation_id: 0,
+    client_type: "person",
     first_name: "",
     last_name: "",
+    cnp: "",
+    company_name: "",
+    cui: "",
+    tva: false,
+    responsible_name: "",
+    responsible_email: "",
     email: "",
     phone: "",
-    status: "",
+    status: "active",
     address: "",
-    signature_id: 0,
   });
 
   const startEdit = () => {
     if (!client) return;
+    const editingCompany = client.client_type === "company";
     setForm({
-      cnp: client.cnp,
-      user_id: client.user_id,
-      organisation_id: client.organisation_id,
-      first_name: client.first_name,
-      last_name: client.last_name,
-      email: client.email,
-      phone: client.phone,
-      status: client.status,
-      address: client.address,
-      signature_id: client.signature_id,
+      client_type: editingCompany ? "company" : "person",
+      first_name: editingCompany ? "" : client.first_name ?? "",
+      last_name: editingCompany ? "" : client.last_name ?? "",
+      cnp: editingCompany ? null : client.cnp != null ? String(client.cnp) : "",
+      company_name: editingCompany ? client.company_name ?? "" : "",
+      cui: editingCompany
+        ? client.cui != null
+          ? String(client.cui)
+          : client.cnp != null
+            ? String(client.cnp)
+            : ""
+        : null,
+      tva: editingCompany ? Boolean(client.tva) : null,
+      responsible_name: editingCompany ? client.responsible_name ?? "" : null,
+      responsible_email: editingCompany ? client.responsible_email ?? "" : null,
+      email: client.email ?? "",
+      phone: client.phone ?? "",
+      status: client.status ?? "active",
+      address: client.address ?? "",
     });
     setEditing(true);
   };
 
   const handleSave = async () => {
     try {
-      await updateClient.mutateAsync(form);
+      const formCompany = form.client_type === "company";
+      await updateClient.mutateAsync({
+        ...form,
+        first_name: formCompany ? null : form.first_name?.trim() || null,
+        last_name: formCompany ? null : form.last_name?.trim() || null,
+        cnp: formCompany ? null : form.cnp ? String(form.cnp).trim() : null,
+        company_name: formCompany ? form.company_name?.trim() || null : null,
+        cui: formCompany ? form.cui ? String(form.cui).trim() : null : null,
+        tva: formCompany ? Boolean(form.tva) : null,
+        responsible_name: formCompany
+          ? form.responsible_name?.trim() || null
+          : null,
+        responsible_email: formCompany
+          ? form.responsible_email?.trim() || null
+          : null,
+      });
       toast.success("Client actualizat.");
       setEditing(false);
       refetch();
@@ -165,13 +196,7 @@ export default function ClientDetailPage() {
       const v = e.target.value;
       setForm((p) => ({
         ...p,
-        [k]:
-          k === "cnp" ||
-          k === "user_id" ||
-          k === "organisation_id" ||
-          k === "signature_id"
-            ? Number.parseInt(v, 10) || 0
-            : v,
+        [k]: v,
       }));
     };
 
@@ -215,7 +240,7 @@ export default function ClientDetailPage() {
     <div>
       <PageHeader
         title={fullName || `Client #${numericId}`}
-        description={`ID #${numericId} · ${isCompany ? "CUI" : "CNP"} ${client.cnp}`}
+        description={`ID #${numericId} · ${isCompany ? "CUI" : "CNP"} ${identifier}`}
         actions={
           <div className="flex gap-2">
             {editing ? (
@@ -274,62 +299,100 @@ export default function ClientDetailPage() {
           <div className="flex-1 min-w-0 overflow-hidden">
             {editing ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Prenume"
-                  value={form.first_name}
-                  onChange={set("first_name")}
-                />
-                <Input
-                  label="Nume"
-                  value={form.last_name}
-                  onChange={set("last_name")}
-                />
-                <Input
-                  label="CNP"
-                  type="number"
-                  value={form.cnp}
-                  onChange={set("cnp")}
-                />
+                <div className="sm:col-span-2">
+                  <SegmentedControl
+                    value={form.client_type}
+                    onChange={(value) =>
+                      setForm((current) => ({
+                        ...current,
+                        client_type: value,
+                      }))
+                    }
+                    options={[
+                      { id: "person", label: "Persoană fizică" },
+                      { id: "company", label: "Companie" },
+                    ]}
+                  />
+                </div>
+                {form.client_type === "company" ? (
+                  <>
+                    <Input
+                      label="Nume firmă"
+                      value={form.company_name ?? ""}
+                      onChange={set("company_name")}
+                    />
+                    <Input
+                      label="CUI"
+                      value={form.cui ?? ""}
+                      onChange={set("cui")}
+                    />
+                    <label className="flex items-center gap-2 text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(form.tva)}
+                        onChange={(e) =>
+                          setForm((current) => ({
+                            ...current,
+                            tva: e.target.checked,
+                          }))
+                        }
+                      />
+                      Plătitor TVA
+                    </label>
+                    <div />
+                    <Input
+                      label="Persoană responsabilă"
+                      value={form.responsible_name ?? ""}
+                      onChange={set("responsible_name")}
+                    />
+                    <Input
+                      label="Email responsabil"
+                      type="email"
+                      value={form.responsible_email ?? ""}
+                      onChange={set("responsible_email")}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Input
+                      label="Prenume"
+                      value={form.first_name ?? ""}
+                      onChange={set("first_name")}
+                    />
+                    <Input
+                      label="Nume"
+                      value={form.last_name ?? ""}
+                      onChange={set("last_name")}
+                    />
+                    <Input
+                      label="CNP"
+                      value={form.cnp ?? ""}
+                      onChange={set("cnp")}
+                    />
+                  </>
+                )}
                 <Input
                   label="Status"
-                  value={form.status}
+                  value={form.status ?? ""}
                   onChange={set("status")}
                 />
                 <div className="sm:col-span-2">
                   <Input
                     label="Email"
                     type="email"
-                    value={form.email}
+                    value={form.email ?? ""}
                     onChange={set("email")}
                   />
                 </div>
                 <Input
                   label="Telefon"
-                  value={form.phone}
+                  value={form.phone ?? ""}
                   onChange={set("phone")}
                 />
                 <Input
                   label="Adresă"
-                  value={form.address}
+                  value={form.address ?? ""}
                   onChange={set("address")}
-                />
-                <Input
-                  label="Organisation ID"
-                  type="number"
-                  value={form.organisation_id}
-                  onChange={set("organisation_id")}
-                />
-                <Input
-                  label="User ID"
-                  type="number"
-                  value={form.user_id}
-                  onChange={set("user_id")}
-                />
-                <Input
-                  label="Signature ID"
-                  type="number"
-                  value={form.signature_id}
-                  onChange={set("signature_id")}
                 />
               </div>
             ) : (
@@ -340,12 +403,12 @@ export default function ClientDetailPage() {
                 <div className="mt-3 grid grid-cols-2 gap-3 min-w-0">
                   <InfoRow
                     icon={<Hash className="w-4 h-4" />}
-                    value={`CNP ${client.cnp}`}
+                    value={`${isCompany ? "CUI" : "CNP"} ${identifier}`}
                   />
                   <InfoRow
                     icon={<Mail className="w-4 h-4" />}
-                    value={client.email}
-                    href={`mailto:${client.email}`}
+                    value={client.email ?? "—"}
+                    href={client.email ? `mailto:${client.email}` : undefined}
                   />
                   {client.phone && (
                     <InfoRow
@@ -358,6 +421,12 @@ export default function ClientDetailPage() {
                     <InfoRow
                       icon={<MapPin className="w-4 h-4" />}
                       value={client.address}
+                    />
+                  )}
+                  {isCompany && client.responsible_name && (
+                    <InfoRow
+                      icon={<Users className="w-4 h-4" />}
+                      value={client.responsible_name}
                     />
                   )}
                 </div>
@@ -427,6 +496,16 @@ type ClientSubmission = {
   date_added: string;
 };
 
+function clientIdentifier(client: {
+  client_type?: string | null;
+  cnp?: string | number | null;
+  cui?: string | number | null;
+}): string {
+  const value =
+    client.client_type === "company" ? client.cui ?? client.cnp : client.cnp;
+  return value == null || value === "" ? "—" : String(value);
+}
+
 function MiniMetric({
   label,
   value,
@@ -453,7 +532,7 @@ function InfoRow({
 }: {
   icon: React.ReactNode;
   value: string;
-  href?: string;
+  href?: string | undefined;
 }) {
   const cls = "flex items-center gap-2 text-sm text-foreground/80 min-w-0";
   const iconEl = <span className="text-muted-foreground shrink-0">{icon}</span>;

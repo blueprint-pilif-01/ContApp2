@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
+import { ConnectedDots } from "./connected-dots";
 
 const ease = [0.23, 1, 0.32, 1] as const;
 
@@ -64,10 +65,18 @@ export function Stats(): ReactNode {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, ease }}
-          className="rounded-3xl bg-frame border border-border px-8 py-12 sm:px-14 sm:py-14"
+          className="relative overflow-hidden rounded-3xl bg-frame border border-border px-8 py-12 sm:px-14 sm:py-14"
         >
+          {/* Ambient network — full-bleed background layer */}
+          <div
+            className="pointer-events-none absolute inset-0 text-accent/14 dark:text-accent/20 max-[850px]:hidden"
+            aria-hidden="true"
+          >
+            <ConnectedDots variant="scatter" />
+          </div>
+
           {/* Header */}
-          <div className="mb-10">
+          <div className="relative mb-10">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Eficiență</span>
             <h2 className="mt-2 text-2xl sm:text-3xl font-semibold text-foreground leading-snug">
               Cât timp economisești<br className="hidden sm:block" /> cu ContApp?

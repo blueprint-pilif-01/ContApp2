@@ -7,11 +7,11 @@ import { getSession } from "../../session";
  * runtime, so we read the persisted session — same effect for in-browser dev.
  */
 function actorId(): number {
-  const s = getSession();
+  const s = getSession("user");
   return s?.principal.kind === "user" ? s.principal.id : 0;
 }
 function actorName(): string {
-  const s = getSession();
+  const s = getSession("user");
   if (s?.principal.kind === "user") {
     return `${s.principal.first_name} ${s.principal.last_name}`.trim() || "Tu";
   }
@@ -19,9 +19,24 @@ function actorName(): string {
 }
 
 function byDateDesc(a: Record<string, unknown>, b: Record<string, unknown>) {
-  const av = String(a.date_added ?? a.updated_at ?? a.published_at ?? "");
-  const bv = String(b.date_added ?? b.updated_at ?? b.published_at ?? "");
+  const av = String(a.date_added ?? a.updated_at ?? a.uploaded_at ?? a.published_at ?? "");
+  const bv = String(b.date_added ?? b.updated_at ?? b.uploaded_at ?? b.published_at ?? "");
   return bv.localeCompare(av);
+}
+
+function parseTemplateContent(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === "object") return value as Record<string, unknown>;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return parsed && typeof parsed === "object"
+        ? (parsed as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 export const workspaceHandler: MockHandler = ({ path, method, body, query }) => {
@@ -35,7 +50,7 @@ export const workspaceHandler: MockHandler = ({ path, method, body, query }) => 
     let rows = listStore("clients").sort((a, b) => Number(b.id) - Number(a.id));
     if (q) {
       rows = rows.filter((c) =>
-        `${c.first_name ?? ""} ${c.last_name ?? ""} ${c.email ?? ""} ${c.phone ?? ""}`
+        `${c.first_name ?? ""} ${c.last_name ?? ""} ${c.company_name ?? ""} ${c.cnp ?? ""} ${c.cui ?? ""} ${c.email ?? ""} ${c.phone ?? ""}`
           .toLowerCase()
           .includes(q)
       );
@@ -474,7 +489,14 @@ export const workspaceHandler: MockHandler = ({ path, method, body, query }) => 
   if (path === "/hr/certificates" && method === "POST")
     return json({ message: "Cererea a fost inregistrata.", request_id: allocateId() }, 201);
 
-  if (path === "/workspace/notes" && method === "GET") return json(listStore("workspaceNotes"));
+  if (path === "/workspace/notes" && method === "GET") {
+    const clientId = query.get("client_id");
+    let rows = listStore("workspaceNotes");
+    if (clientId) {
+      rows = rows.filter((note) => String(note.client_id ?? "") === clientId);
+    }
+    return json(rows.sort(byDateDesc));
+  }
   if (path === "/workspace/notes" && method === "POST")
     return json(upsertStore("workspaceNotes", body ?? {}), 201);
   if (path.match(/^\/workspace\/notes\/\d+$/) && method === "PUT") {
@@ -482,6 +504,65 @@ export const workspaceHandler: MockHandler = ({ path, method, body, query }) => 
     if (!id || !getStore("workspaceNotes", id)) return notFound();
     return json(upsertStore("workspaceNotes", body ?? {}, id));
   }
+  if (path.match(/^\/workspace\/notes\/\d+$/) && method === "DELETE") {
+    const id = parseId(path.split("/").pop());
+    if (!id) return notFound();
+    const ok = stores.workspaceNotes.delete(id);
+    return ok ? json({ message: "deleted" }) : notFound();
+  }
+
+  const clientDocsMatch = path.match(/^\/clients\/(\d+)\/documents$/);
+  if (clientDocsMatch && method === "GET") {
+    const clientId = Number(clientDocsMatch[1]);
+    return json(
+      listStore("documents")
+        .filter((doc) => Number(doc.client_id) === clientId)
+        .sort(byDateDesc)
+    );
+  }
+  if (clientDocsMatch && method === "POST") {
+    const clientId = Number(clientDocsMatch[1]);
+    const client = getStore("clients", clientId);
+    const clientName = client
+      ? String(client.company_name || `${client.first_name ?? ""} ${client.last_name ?? ""}`.trim())
+      : `Client #${clientId}`;
+    return json(
+      upsertStore("documents", {
+        name: body?.name ?? "Document",
+        type: "file",
+        mime_type: body?.mime_type ?? "application/octet-stream",
+        size: body?.size ?? 0,
+        folder: "/",
+        client_id: clientId,
+        client_name: clientName,
+        uploaded_by: actorId(),
+        uploaded_at: body?.uploaded_at ?? new Date().toISOString(),
+      }),
+      201
+    );
+  }
+  const clientDocMatch = path.match(/^\/clients\/(\d+)\/documents\/(\d+)$/);
+  if (clientDocMatch && method === "DELETE") {
+    const docId = Number(clientDocMatch[2]);
+    const ok = stores.documents.delete(docId);
+    return ok ? json({ message: "deleted" }) : notFound();
+  }
+  const clientDocDownloadMatch = path.match(
+    /^\/clients\/(\d+)\/documents\/(\d+)\/download$/
+  );
+  if (clientDocDownloadMatch && method === "GET") {
+    const docId = Number(clientDocDownloadMatch[2]);
+    const doc = getStore("documents", docId);
+    if (!doc) return notFound();
+    return new Response(`Mock document: ${String(doc.name ?? docId)}\n`, {
+      status: 200,
+      headers: {
+        "Content-Type": String(doc.mime_type ?? "text/plain"),
+        "Content-Disposition": `attachment; filename="${String(doc.name ?? `document-${docId}`)}"`,
+      },
+    });
+  }
+
   if (path === "/notebook/documents" && method === "GET") return json(listStore("notebookDocs"));
   if (path === "/notebook/documents" && method === "POST")
     return json(upsertStore("notebookDocs", body ?? {}), 201);
@@ -742,6 +823,7 @@ export const workspaceHandler: MockHandler = ({ path, method, body, query }) => 
     }
 
     const template = getStore("templates", Number(invite.template_id));
+    const templateContent = parseTemplateContent(template?.content_json);
     const fields = listStore("templateFields")
       .filter((f) => Number(f.template_id) === Number(invite.template_id))
       .sort((a, b) => Number(b.id) - Number(a.id));
@@ -767,8 +849,7 @@ export const workspaceHandler: MockHandler = ({ path, method, body, query }) => 
             contract_type: template.contract_type,
           }
         : null,
-      // Tiptap JSON snapshot — frontend renders dynamic form from fieldNode atoms.
-      content: latestField ? JSON.parse(String(latestField.data)) : null,
+      content: templateContent ?? (latestField ? JSON.parse(String(latestField.data)) : null),
       client_hint: invite.client_id ? getStore("clients", Number(invite.client_id)) : null,
     });
   }

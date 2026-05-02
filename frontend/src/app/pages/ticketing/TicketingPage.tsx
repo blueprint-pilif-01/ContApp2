@@ -167,7 +167,7 @@ export default function TicketingPage() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Caută task..."
+              placeholder="Caută ticket..."
               className="w-full pl-9 pr-3 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
             />
           </div>

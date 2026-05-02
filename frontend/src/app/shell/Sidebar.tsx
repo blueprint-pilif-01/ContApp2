@@ -19,7 +19,9 @@ import {
   FolderOpen,
   Activity,
   Zap,
+  X,
 } from "lucide-react";
+import { motion } from "motion/react";
 import { cn } from "../../lib/utils";
 import { logout, useMe } from "../../hooks/useMe";
 import { useExtensions } from "../../hooks/useExtensions";
@@ -137,7 +139,17 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
   },
 ];
 
-export function Sidebar() {
+export interface SidebarProps {
+  /** When false below `lg`, sidebar slides off-screen. Desktop always visible. */
+  mobileOpen?: boolean;
+  /** Called after choosing a destination on narrow viewports & from header close affordance */
+  onMobileClose?: () => void;
+}
+
+export function Sidebar({
+  mobileOpen = false,
+  onMobileClose,
+}: SidebarProps) {
   const { data: me } = useMe();
   const ext = useExtensions();
   const navigate = useNavigate();
@@ -156,10 +168,11 @@ export function Sidebar() {
 
   const handleSignOut = async () => {
     try {
-      await logout();
+      await logout("user");
     } finally {
       queryClient.clear();
       navigate("/login");
+      onMobileClose?.();
     }
   };
 
@@ -168,12 +181,30 @@ export function Sidebar() {
     : "—";
 
   return (
-    <aside className="fixed left-0 top-0 bottom-0 w-64 bg-frame border-r border-border flex flex-col z-40 shrink-0">
-      <div className="h-14 flex items-center gap-2 px-5 border-b border-border shrink-0">
-        <img src="/contapplogo.png" alt="ContApp" className="h-8 w-auto" />
-        <span className="text-sm font-semibold tracking-tight text-foreground">
-          ContApp
-        </span>
+    <aside
+      id="contapp-sidebar"
+      className={cn(
+        "fixed left-0 top-0 bottom-0 z-40 flex w-[min(20rem,calc(100vw-3rem))] max-w-[20rem] shrink-0 flex-col border-r border-border bg-frame shadow-black/40 shadow-xl lg:z-40 lg:w-64 lg:max-w-none lg:shadow-none",
+        "transition-[transform] duration-300 motion-reduce:transition-none",
+        "ease-[cubic-bezier(0.32,0.72,0,1)] will-change-[transform]",
+        mobileOpen ? "translate-x-0" : "-translate-x-full",
+        "lg:translate-x-0",
+      )}
+    >
+      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-5 pr-3">
+        <img src="/egeslogolighty.png" alt="" className="h-10 w-auto dark:hidden" />
+        <img src="/egeslogodark.png" alt="" className="hidden h-10 w-auto dark:block" />
+        <button
+          type="button"
+          className={cn(
+            "ml-auto flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground lg:hidden",
+            "hover:bg-foreground/5 hover:text-foreground active:scale-95 motion-reduce:active:scale-100",
+          )}
+          aria-label="Închide meniul"
+          onClick={() => onMobileClose?.()}
+        >
+          <X className="h-[18px] w-[18px]" strokeWidth={1.85} />
+        </button>
       </div>
 
       <button
@@ -181,85 +212,165 @@ export function Sidebar() {
         onClick={() => {
           document.dispatchEvent(new CustomEvent("contapp:open-palette"));
         }}
-        className="m-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-background hover:bg-foreground/5 transition-colors text-left"
+        className="m-3 mb-2 flex flex-none items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-left transition-colors hover:bg-foreground/5"
       >
-        <Search className="w-4 h-4 text-muted-foreground" strokeWidth={1.7} />
-        <span className="text-xs text-muted-foreground flex-1">
-          Caută... (Cmd+K)
+        <Search className="h-4 w-4 text-muted-foreground" strokeWidth={1.7} />
+        <span className="flex-1 text-xs text-muted-foreground">
+          Caută... <span className="max-[360px]:hidden">(Cmd+K)</span>
         </span>
-        <kbd className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-foreground/8 text-muted-foreground">
+        <kbd className="rounded-md bg-foreground/8 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground max-[380px]:hidden">
           ⌘K
         </kbd>
       </button>
 
-      <nav className="flex-1 overflow-y-auto pb-4 px-3 space-y-5 mt-1">
-        {navGroups.map((group, gi) => (
-          <div key={gi}>
-            {group.label && (
-              <p className="px-2 mb-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-                {group.label}
-              </p>
-            )}
-            <ul className="space-y-0.5">
-              {group.items.map((item) => {
-                const locked =
-                  !!item.extension && ext.isReady && !ext.canUse(item.extension);
-                return (
-                  <li key={item.href}>
-                    <NavLink
-                      to={item.href}
-                      end={item.end}
-                      title={locked ? `Necesită ${item.extension}` : undefined}
-                      className={({ isActive }) =>
-                        cn(
-                          "group flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] transition-all",
-                          isItemActive(item, isActive)
-                            ? "bg-foreground text-background font-semibold shadow-sm"
-                            : "text-foreground/70 hover:text-foreground hover:bg-foreground/5",
-                          locked && "opacity-60"
-                        )
-                      }
-                    >
-                      <item.icon
-                        className="w-4 h-4 shrink-0"
-                        strokeWidth={1.85}
-                      />
-                      <span className="flex-1">{item.label}</span>
-                      {item.badge && !locked && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-[color:var(--ai-grad-1)] to-[color:var(--ai-grad-3)] text-white">
-                          {item.badge}
-                        </span>
-                      )}
-                      {locked && item.extension && (
-                        <ExtensionLock extension={item.extension} />
-                      )}
-                    </NavLink>
-                  </li>
-                );
-              })}
-            </ul>
+      <nav className="relative mt-1 flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-4 pt-1">
+        <div className="relative z-[1] w-full">
+          {/* Spine must live inside scroll content so height = full list, not just viewport */}
+          <div
+            className="pointer-events-none absolute bottom-2 left-0 top-2 z-0 flex w-[22px] justify-center"
+            aria-hidden
+          >
+            <div className="h-full w-[2px] -translate-x-px rounded-full bg-border dark:bg-white/22" />
           </div>
-        ))}
+
+          {navGroups.map((group, gi) => (
+            <div key={gi} className={gi > 0 ? "mt-2 pt-2.5" : ""}>
+              {group.label && (
+                <p className="mb-1.5 pl-9 pr-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/95">
+                  {group.label}
+                </p>
+              )}
+              <ul className="mr-1 space-y-0.5">
+                {group.items.map((item) => {
+                  const locked = !!item.extension && ext.isReady && !ext.canUse(item.extension);
+                  return (
+                    <li key={item.href}>
+                      <NavLink
+                        to={item.href}
+                        end={item.end}
+                        title={locked ? `Necesită ${item.extension}` : undefined}
+                        prefetch="intent"
+                        onClick={() => onMobileClose?.()}
+                        className={({ isActive }) => {
+                          const on = isItemActive(item, isActive);
+                          return cn(
+                            "group/nav-row flex w-full cursor-pointer items-stretch gap-0 rounded-xl py-2 pr-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]/35",
+                            on
+                              ? "bg-foreground font-semibold text-background shadow-md dark:shadow-lg"
+                              : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+                            locked && "opacity-60",
+                          );
+                        }}
+                      >
+                        {({ isActive }) => {
+                          const on = isItemActive(item, isActive);
+                          return (
+                            <>
+                              <div className="relative flex w-[22px] shrink-0 flex-col items-center justify-center">
+                                {on ? (
+                                  <span
+                                    aria-hidden
+                                    className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                                  >
+                                    <span
+                                      className={cn(
+                                        "absolute h-9 w-9 rounded-full blur-[10px] motion-reduce:blur-none motion-reduce:opacity-75",
+                                        "contapp-sidebar-node-glow bg-[color-mix(in_srgb,var(--accent)_50%,transparent)] opacity-[0.72] shadow-[0_0_22px_-4px_var(--accent)] dark:opacity-85",
+                                      )}
+                                    />
+                                  </span>
+                                ) : null}
+                                {on ? (
+                                  <motion.span
+                                    layoutId="contapp-sidebar-active-node"
+                                    className="relative z-[5] flex h-[11px] w-[11px] items-center justify-center rounded-full border-[1.5px] border-white/90 bg-gradient-to-br from-white via-[color:var(--accent)] to-[color-mix(in_srgb,var(--accent)_75%,#14532d)] shadow-[inset_0_1px_2px_rgba(255,255,255,0.55),0_0_14px_-3px_color-mix(in_srgb,var(--accent)_55%,transparent)] dark:border-[color-mix(in_srgb,var(--accent)_90%,white)] dark:from-white/95 dark:via-accent dark:to-emerald-950/80"
+                                    initial={false}
+                                    animate={{
+                                      scale: [0.92, 1.12, 1],
+                                      x: [0, 3, -1],
+                                      y: [0, -2, 0],
+                                    }}
+                                    transition={{
+                                      layout: { type: "spring", stiffness: 460, damping: 32, mass: 0.8 },
+                                      scale: {
+                                        duration: 0.44,
+                                        times: [0, 0.38, 1],
+                                        ease: [0.34, 1.56, 0.64, 1],
+                                      },
+                                      x: {
+                                        duration: 0.44,
+                                        times: [0, 0.38, 1],
+                                        ease: [0.34, 1.56, 0.64, 1],
+                                      },
+                                      y: {
+                                        duration: 0.44,
+                                        times: [0, 0.38, 1],
+                                        ease: [0.34, 1.56, 0.64, 1],
+                                      },
+                                    }}
+                                  >
+                                    <span className="pointer-events-none absolute inset-[2px] rounded-full bg-gradient-to-br from-white/70 to-transparent opacity-90 mix-blend-overlay dark:from-white/80" />
+                                  </motion.span>
+                                ) : (
+                                  <span
+                                    aria-hidden
+                                    className="relative z-[4] flex h-[7px] w-[7px] items-center justify-center rounded-full border border-white/25 bg-gradient-to-b from-muted/90 to-muted/45 shadow-[inset_0_-1px_2px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out group-hover/nav-row:scale-110 dark:border-white/40 dark:from-white/16 dark:to-white/[0.06]"
+                                  >
+                                    <span className="pointer-events-none absolute left-1/2 top-1/2 h-[3px] w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground/35 shadow-[0_0_0_1px_rgba(255,255,255,0.12)] dark:bg-white/45" />
+                                  </span>
+                                )}
+                              </div>
+                              <motion.div
+                                className="flex min-w-0 flex-1 items-center gap-2.5 pl-1.5"
+                                initial={false}
+                                animate={on ? { x: [0, 4, 0] } : { x: 0 }}
+                                transition={
+                                  on
+                                    ? { duration: 0.5, times: [0, 0.28, 1], ease: [0.22, 1, 0.36, 1] }
+                                    : { duration: 0.2, ease: "easeOut" }
+                                }
+                                whileTap={{
+                                  scale: 0.985,
+                                  transition: { type: "spring", stiffness: 540, damping: 35 },
+                                }}
+                              >
+                                <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.85} />
+                                <span className="min-w-0 flex-1">{item.label}</span>
+                                {item.badge && !locked && (
+                                  <span className="rounded-full bg-[color:var(--accent)] px-1.5 py-0.5 text-[9px] font-bold text-[color:var(--accent-contrast)]">
+                                    {item.badge}
+                                  </span>
+                                )}
+                                {locked && item.extension && <ExtensionLock extension={item.extension} />}
+                              </motion.div>
+                            </>
+                          );
+                        }}
+                      </NavLink>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
       </nav>
 
-      <div className="px-3 py-3 border-t border-border shrink-0">
-        <div className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-foreground/5 transition-colors">
+      <div className="shrink-0 border-t border-border px-3 py-3">
+        <div className="flex items-center gap-2.5 rounded-xl p-2 transition-colors hover:bg-foreground/5">
           <Avatar name={fullName} size="sm" status="online" />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-foreground truncate">
-              {fullName}
-            </p>
-            <p className="text-[11px] text-muted-foreground truncate">
-              {me?.email ?? "—"}
-            </p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold text-foreground">{fullName}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{me?.email ?? "—"}</p>
           </div>
           <button
+            type="button"
             onClick={handleSignOut}
-            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
             aria-label="Deconectare"
             title="Deconectare"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
