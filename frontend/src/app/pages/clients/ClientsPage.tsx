@@ -20,22 +20,24 @@ import { Drawer } from "../../../components/ui/Drawer";
 import { EmptyArt } from "../../../components/ui/EmptyArt";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { useCollectionCreate, useCollectionList } from "../../../hooks/useCollection";
-import { usePrincipal } from "../../../hooks/useMe";
 import { SkeletonRows } from "../../../components/ui/Skeleton";
 import { ErrorState } from "../../../components/ui/EmptyState";
 
 type Client = {
   id: number;
   client_type?: "person" | "company";
-  first_name: string;
-  last_name: string;
+  first_name?: string | null;
+  last_name?: string | null;
   company_name?: string;
   email: string;
   phone: string;
   status: string;
   address: string;
-  cnp: number;
-  organisation_id: number;
+  cnp?: string | number | null;
+  cui?: string | number | null;
+  tva?: boolean | null;
+  responsible_name?: string | null;
+  responsible_email?: string | null;
 };
 
 function clientDisplay(c: Client): string {
@@ -43,11 +45,15 @@ function clientDisplay(c: Client): string {
   return `${c.first_name} ${c.last_name}`.trim() || `Client #${c.id}`;
 }
 
+function clientIdentifier(c: Client): string {
+  const value = c.client_type === "company" ? c.cui ?? c.cnp : c.cnp;
+  return value == null || value === "" ? "—" : String(value);
+}
+
 const PAGE_SIZE = 8;
 
 export default function ClientsPage() {
   const navigate = useNavigate();
-  const principal = usePrincipal();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
@@ -56,7 +62,10 @@ export default function ClientsPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [companyName, setCompanyName] = useState("");
-  const [cui, setCui] = useState("");
+  const [identifier, setIdentifier] = useState("");
+  const [tva, setTva] = useState(false);
+  const [responsibleName, setResponsibleName] = useState("");
+  const [responsibleEmail, setResponsibleEmail] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -222,7 +231,7 @@ export default function ClientsPage() {
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {client.client_type === "company" ? "CUI" : "CNP"}{" "}
-                            {client.cnp}
+                            {clientIdentifier(client)}
                           </p>
                         </div>
                       </div>
@@ -303,12 +312,6 @@ export default function ClientsPage() {
                 const isCompany = clientType === "company";
                 if (isCompany && !companyName.trim()) return;
                 if (!isCompany && (!firstName.trim() || !lastName.trim())) return;
-                const ownerId = principal?.kind === "user" ? principal.id : 0;
-                const orgId =
-                  principal?.kind === "user" ? principal.organisation_id ?? 0 : 0;
-                const cuiNum = cui.trim()
-                  ? Number.parseInt(cui, 10) || 0
-                  : Math.floor(1000000000000 + Math.random() * 8999999999999);
                 const fallbackEmail = isCompany
                   ? `${companyName}@firma.ro`
                       .toLowerCase()
@@ -316,22 +319,26 @@ export default function ClientsPage() {
                   : `${firstName}.${lastName}@mail.ro`.toLowerCase();
                 create.mutate({
                   client_type: clientType,
-                  cnp: cuiNum,
-                  user_id: ownerId,
-                  organisation_id: orgId,
-                  first_name: isCompany ? "" : firstName,
-                  last_name: isCompany ? "" : lastName,
+                  first_name: isCompany ? null : firstName.trim(),
+                  last_name: isCompany ? null : lastName.trim(),
+                  cnp: isCompany ? null : identifier.trim() || null,
                   company_name: isCompany ? companyName : "",
+                  cui: isCompany ? identifier.trim() || null : null,
+                  tva: isCompany ? tva : null,
+                  responsible_name: isCompany ? responsibleName.trim() || null : null,
+                  responsible_email: isCompany ? responsibleEmail.trim() || null : null,
                   email: email || fallbackEmail,
                   phone,
                   status: "active",
                   address,
-                  signature_id: 0,
                 });
                 setFirstName("");
                 setLastName("");
                 setCompanyName("");
-                setCui("");
+                setIdentifier("");
+                setTva(false);
+                setResponsibleName("");
+                setResponsibleEmail("");
                 setEmail("");
                 setPhone("");
                 setAddress("");
@@ -374,11 +381,35 @@ export default function ClientsPage() {
         )}
         <Input
           label={clientType === "company" ? "CUI" : "CNP (opțional)"}
-          type="number"
-          value={cui}
-          onChange={(e) => setCui(e.target.value)}
-          placeholder={clientType === "company" ? "12345678" : "auto-generat dacă lași gol"}
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          placeholder={clientType === "company" ? "RO12345678" : "1960101123456"}
         />
+        {clientType === "company" && (
+          <>
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={tva}
+                onChange={(e) => setTva(e.target.checked)}
+              />
+              Plătitor TVA
+            </label>
+            <Input
+              label="Persoană responsabilă"
+              value={responsibleName}
+              onChange={(e) => setResponsibleName(e.target.value)}
+              placeholder="Ana Popescu"
+            />
+            <Input
+              label="Email responsabil"
+              type="email"
+              value={responsibleEmail}
+              onChange={(e) => setResponsibleEmail(e.target.value)}
+              placeholder="ana@example.com"
+            />
+          </>
+        )}
         <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <Input label="Telefon" value={phone} onChange={(e) => setPhone(e.target.value)} />
         <Input label="Adresă" value={address} onChange={(e) => setAddress(e.target.value)} />

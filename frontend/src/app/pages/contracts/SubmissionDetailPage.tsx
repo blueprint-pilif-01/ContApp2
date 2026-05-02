@@ -1,10 +1,26 @@
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download, PenTool } from "lucide-react";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { Button } from "../../../components/ui/Button";
-import { BackendNote } from "../../../components/ui/BackendNote";
 import { useSubmission } from "../../../hooks/useSubmissions";
 import { isApiError } from "../../../lib/api";
+
+const BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "") ?? "";
+
+async function downloadBlob(path: string, filename: string) {
+  const res = await fetch(`${BASE_URL}${path}`, { credentials: "include" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 export default function SubmissionDetailPage() {
   const params = useParams<{ id: string }>();
@@ -18,19 +34,42 @@ export default function SubmissionDetailPage() {
       <PageHeader
         title={`Semnare #${id}`}
         actions={
-          <Link to="/app/contracts/submissions">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="w-4 h-4" /> Înapoi
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link to="/app/contracts/submissions">
+              <Button variant="outline" size="sm">
+                <ArrowLeft className="w-4 h-4" /> Înapoi
+              </Button>
+            </Link>
+            {data && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    downloadBlob(
+                      `/contracts/submissions/${id}/signature`,
+                      `semnatura-${id}.png`
+                    )
+                  }
+                >
+                  <PenTool className="w-4 h-4" /> Semnătură
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    downloadBlob(
+                      `/contracts/submissions/${id}/pdf`,
+                      `contract-${id}.pdf`
+                    )
+                  }
+                >
+                  <Download className="w-4 h-4" /> PDF
+                </Button>
+              </>
+            )}
+          </div>
         }
       />
-
-      <BackendNote>
-        Backend-ul nu expune încă descărcarea PDF-ului (
-        <code>GET /contracts/submissions/:id/pdf</code>). Funcția va fi
-        activată după ce endpoint-ul este implementat.
-      </BackendNote>
 
       {isLoading && (
         <p className="text-sm text-muted-foreground">Se încarcă…</p>
@@ -53,10 +92,10 @@ export default function SubmissionDetailPage() {
             <strong>Client:</strong> #{data.client_id}
           </p>
           <p className="text-sm">
-            <strong>User:</strong> #{data.user_id}
+            <strong>User:</strong> {data.user_id ? `#${data.user_id}` : "—"}
           </p>
           <p className="text-sm">
-            <strong>PDF File:</strong> #{data.pdf_file_id}
+            <strong>PDF File:</strong> {data.pdf_file_id ? `#${data.pdf_file_id}` : "—"}
           </p>
           <p className="text-sm">
             <strong>Expiră:</strong>{" "}

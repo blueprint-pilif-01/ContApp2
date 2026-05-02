@@ -31,14 +31,14 @@ const triggerLabels: Record<string, string> = {
 };
 
 const actionLabels: Record<string, string> = {
-  create_task: "Crează task",
+  create_task: "Crează ticket",
   send_notification: "Trimite notificare",
   send_email: "Trimite email",
 };
 
 const entityLabels: Record<string, string> = {
   contracts: "Contracte",
-  tasks: "Taskuri",
+  tasks: "Tickete",
   hr_leaves: "Concedii HR",
 };
 
@@ -206,7 +206,7 @@ export default function AutomationRulesPage() {
           <select value={newAction} onChange={(e) => setNewAction(e.target.value as AutomationRule["action"])}
             className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40">
             <option value="send_notification">Trimite notificare</option>
-            <option value="create_task">Crează task automat</option>
+            <option value="create_task">Crează ticket automat</option>
             <option value="send_email">Trimite email</option>
           </select>
         </div>
@@ -216,7 +216,7 @@ export default function AutomationRulesPage() {
           <select value={newAppliesTo} onChange={(e) => setNewAppliesTo(e.target.value as AutomationRule["applies_to"])}
             className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40">
             <option value="contracts">Contracte</option>
-            <option value="tasks">Taskuri</option>
+            <option value="tasks">Tickete</option>
             <option value="hr_leaves">Concedii HR</option>
           </select>
         </div>

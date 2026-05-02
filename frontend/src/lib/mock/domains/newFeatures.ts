@@ -55,7 +55,7 @@ function ensureSeed() {
     { user_id: 3, user_name: "Victor Ionescu", action: "sign", entity_type: "contract", entity_id: 602, entity_title: "Contract consultanță fiscală", details: "Semnat electronic", created_at: ago(1) },
     { user_id: 2, user_name: "Mara Stan", action: "create", entity_type: "document", entity_id: 201, entity_title: "Balanță verificare MAR 2026", created_at: ago(1) },
     { user_id: 1, user_name: "Andrei Popescu", action: "update", entity_type: "client", entity_id: 101, entity_title: "Diana Pop", details: "Adăugat CUI și adresa", created_at: ago(2) },
-    { user_id: 1, user_name: "Andrei Popescu", action: "delete", entity_type: "task", entity_id: 310, entity_title: "Task duplicat verificare", created_at: ago(2) },
+    { user_id: 1, user_name: "Andrei Popescu", action: "delete", entity_type: "task", entity_id: 310, entity_title: "Ticket duplicat verificare", created_at: ago(2) },
     { user_id: 3, user_name: "Victor Ionescu", action: "create", entity_type: "hr_leave", entity_id: 50, entity_title: "Concediu medical 24-25 apr", created_at: ago(3) },
     { user_id: 2, user_name: "Mara Stan", action: "login", entity_type: "session", entity_id: 0, entity_title: "Autentificare reușită", created_at: ago(3) },
     { user_id: 1, user_name: "Andrei Popescu", action: "create", entity_type: "contract", entity_id: 603, entity_title: "Contract lunar SC Alfa SRL", created_at: ago(4) },
@@ -77,9 +77,9 @@ function ensureSeed() {
 
   const rules = [
     { name: "Reminder 5 zile înainte de deadline contract", trigger: "days_before_deadline", trigger_value: 5, action: "send_notification", applies_to: "contracts", enabled: true, last_run: ago(1), created_at: ago(30), affected_count: 3 },
-    { name: "Crează task la contract nou", trigger: "on_create", trigger_value: 0, action: "create_task", applies_to: "contracts", enabled: true, last_run: ago(2), created_at: ago(60), affected_count: 0 },
+    { name: "Crează ticket la contract nou", trigger: "on_create", trigger_value: 0, action: "create_task", applies_to: "contracts", enabled: true, last_run: ago(2), created_at: ago(60), affected_count: 0 },
     { name: "Email reminder concediu aproape", trigger: "days_before_deadline", trigger_value: 3, action: "send_email", applies_to: "hr_leaves", enabled: false, created_at: ago(15), affected_count: 1 },
-    { name: "Notificare task blocat", trigger: "on_status_change", trigger_value: 0, action: "send_notification", applies_to: "tasks", enabled: true, last_run: ago(0), created_at: ago(45), affected_count: 2 },
+    { name: "Notificare ticket blocat", trigger: "on_status_change", trigger_value: 0, action: "send_notification", applies_to: "tasks", enabled: true, last_run: ago(0), created_at: ago(45), affected_count: 2 },
   ];
   for (const r of rules) upsertStore("automationRules", { ...r, id: allocateId() });
 }

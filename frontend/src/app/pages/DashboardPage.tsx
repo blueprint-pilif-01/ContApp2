@@ -252,7 +252,7 @@ export default function DashboardPage() {
         />
         <StatCard
           icon={ListChecks}
-          label="Taskuri deschise"
+          label="Tickete deschise"
           value={d?.kpis.tasks_open ?? 0}
           accent={d?.kpis.tasks_overdue ? "danger" : "neutral"}
           trend={d?.kpis.tasks_overdue ? "down" : "flat"}
@@ -543,7 +543,7 @@ export default function DashboardPage() {
         <SectionCard
           icon={Users}
           title="Volum echipă"
-          description="Taskuri per membru săptămâna asta."
+          description="Tickete per membru săptămâna asta."
           actions={
             <Button
               size="xs"

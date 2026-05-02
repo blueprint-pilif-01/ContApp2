@@ -1434,7 +1434,7 @@ export const stores = {
     {
       id: 1702,
       user_id: 1,
-      title: "Task nou asignat",
+      title: "Ticket nou asignat",
       body: "Verificare contracte expirate – termen 2 zile.",
       kind: "task",
       link: "/app/ticketing",

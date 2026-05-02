@@ -32,7 +32,12 @@ interface SignPayload {
   };
   template: { id: number; name: string; contract_type: string } | null;
   content: TiptapDoc | null;
-  client_hint: { first_name?: string; last_name?: string; email?: string } | null;
+  client_hint: {
+    first_name?: string | null;
+    last_name?: string | null;
+    company_name?: string | null;
+    email?: string | null;
+  } | null;
 }
 
 interface TiptapDoc {
@@ -63,6 +68,18 @@ function extractFields(doc: TiptapDoc | null): FieldAttrs[] {
   };
   if (Array.isArray(doc.content)) doc.content.forEach(walk);
   return out;
+}
+
+function unwrapSignPayload(value: SignPayload | { data: SignPayload }): SignPayload {
+  if (
+    value &&
+    typeof value === "object" &&
+    "data" in value &&
+    (value as { data?: unknown }).data
+  ) {
+    return (value as { data: SignPayload }).data;
+  }
+  return value as SignPayload;
 }
 
 function renderPreview(doc: TiptapDoc | null, filled: Record<string, string>): string {
@@ -103,19 +120,23 @@ export default function SignPage() {
     let cancelled = false;
     setLoading(true);
     api
-      .get<SignPayload>(`/public/sign/${token}`, { skipAuth: true })
+      .get<SignPayload | { data: SignPayload }>(`/public/sign/${token}`, { skipAuth: true })
       .then((res) => {
         if (cancelled) return;
-        setData(res);
+        const payload = unwrapSignPayload(res);
+        setData(payload);
         // Pre-fill from client hint where field labels match (best-effort UX).
-        const hint = res.client_hint;
+        const hint = payload.client_hint;
         if (hint) {
           const seed: Record<string, string> = {};
-          const fields = extractFields(res.content);
+          const fields = extractFields(payload.content);
+          const hintedName =
+            hint.company_name ||
+            `${hint.first_name ?? ""} ${hint.last_name ?? ""}`.trim();
           for (const f of fields) {
             const lbl = f.label.toLowerCase();
-            if (lbl.includes("nume") && hint.first_name && hint.last_name) {
-              seed[f.id] = `${hint.first_name} ${hint.last_name}`;
+            if ((lbl.includes("nume") || lbl.includes("denumire")) && hintedName) {
+              seed[f.id] = hintedName;
             } else if (lbl.includes("email") && hint.email) {
               seed[f.id] = hint.email;
             }
@@ -151,11 +172,20 @@ export default function SignPage() {
     if (!token || !canSubmit) return;
     setSubmitting(true);
     try {
-      const res = await api.post<{
-        message: string;
-        submission_id: number;
-        contract_number: string;
-      }>(
+      const res = await api.post<
+        | {
+            message: string;
+            submission_id: number;
+            contract_number: string;
+          }
+        | {
+            data: {
+              message: string;
+              submission_id: number;
+              contract_number: string;
+            };
+          }
+      >(
         `/public/sign/${token}`,
         {
           filled_fields: filled,
@@ -164,9 +194,10 @@ export default function SignPage() {
         },
         { skipAuth: true }
       );
+      const result = "data" in res ? res.data : res;
       navigate(`/public/sign/${token}/success`, {
         state: {
-          contract_number: res.contract_number,
+          contract_number: result.contract_number,
           template_name: data?.template?.name,
         },
         replace: true,

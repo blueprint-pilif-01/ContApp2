@@ -23,8 +23,8 @@ type Submission = {
   id: number;
   invite_id: number;
   client_id: number;
-  user_id: number;
-  pdf_file_id: number;
+  user_id?: number;
+  pdf_file_id?: number;
   status: string;
   remarks: string;
   date_added: string;
@@ -292,9 +292,7 @@ export default function SubmissionsPage() {
               onClick={() => {
                 create.mutate({
                   invite_id: Number(inviteId),
-                  user_id: 1,
                   client_id: Number(clientId),
-                  pdf_file_id: Math.floor(7000 + Math.random() * 1000),
                   remarks,
                   status: "signed",
                   expiration_date: new Date(Date.now() + 30 * 86400000).toISOString(),

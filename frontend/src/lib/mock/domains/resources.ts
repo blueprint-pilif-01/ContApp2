@@ -12,6 +12,23 @@ const resourceMap = {
 
 type ResourceKey = keyof typeof resourceMap;
 
+function withTemplateContent(row: Record<string, unknown>) {
+  if (row.content_json) return row;
+  const fields = listStore("templateFields")
+    .filter((field) => Number(field.template_id) === Number(row.id))
+    .sort((a, b) => Number(b.id) - Number(a.id));
+  const latest = fields[0];
+  if (!latest?.data) return { ...row, content_json: null };
+  try {
+    return {
+      ...row,
+      content_json: JSON.parse(String(latest.data)) as Record<string, unknown>,
+    };
+  } catch {
+    return { ...row, content_json: null };
+  }
+}
+
 export const resourceHandler: MockHandler = ({ path, method, body, query }) => {
   const noActor = path.replace(/^\/(user|admin)\//, "/").replace(/^\/+/, "");
   const parts = noActor.split("/").filter(Boolean);
@@ -28,16 +45,30 @@ export const resourceHandler: MockHandler = ({ path, method, body, query }) => {
   if (method === "GET" && id === null) {
     const rows = listStore(storeName).sort((a, b) => Number(b.id) - Number(a.id));
     const filtered = matchesQuery(rows, query, ["name", "title", "email", "status", "remarks"]);
-    return json(filtered);
+    return json(
+      resource === "contracts/templates"
+        ? filtered.map(withTemplateContent)
+        : filtered
+    );
   }
 
   if (method === "GET" && id !== null) {
     const rec = getStore(storeName, id);
-    return rec ? json(rec) : notFound();
+    return rec
+      ? json(resource === "contracts/templates" ? withTemplateContent(rec) : rec)
+      : notFound();
   }
 
   if (method === "POST" && id === null) {
     const created = upsertStore(storeName, body ?? {});
+    if (resource === "contracts/invites" && !created.public_token) {
+      const withToken = upsertStore(
+        storeName,
+        { ...created, public_token: `tok-${created.id}` },
+        created.id
+      );
+      return json(withToken, 201);
+    }
     return json(created, 201);
   }
 

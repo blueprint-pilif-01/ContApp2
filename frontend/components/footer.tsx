@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Mail } from "lucide-react";
 import type { ReactNode } from "react";
+import { ConnectedDots } from "./connected-dots";
 
 const footerLinks = {
   produs: [
@@ -39,13 +40,10 @@ export function Footer(): ReactNode {
     <footer className="relative pt-38 mt-24 mx-2.5 max-[850px]:mx-0">
       <div className="absolute left-1/2 -translate-x-1/2 top-0 w-full max-w-5xl px-4">
         <div className="relative w-full rounded-[1.5rem] overflow-hidden border border-border/80 bg-frame/95 backdrop-blur-xl shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_2px_4px_rgba(0,0,0,0.05),0_12px_24px_rgba(0,0,0,0.08),0_24px_48px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_2px_4px_rgba(0,0,0,0.3),0_12px_24px_rgba(0,0,0,0.2)]">
-          {/* Blob background - strong green gradient */}
-          <div className="absolute inset-0 bg-[linear-gradient(145deg,_#f0fdf4_0%,_#dcfce7_25%,_#bbf7d0_50%,_#86efac_75%,_#a8d946_100%)] dark:bg-[linear-gradient(145deg,_#0f1410_0%,_#152015_30%,_#1a2e1a_55%,_#1e3d1e_80%,_#243d10_100%)]" aria-hidden="true" />
-          <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-accent/45 dark:bg-accent/30 blur-[80px]" aria-hidden="true" />
-          <div className="absolute top-1/2 -left-24 w-80 h-80 rounded-full bg-accent/40 dark:bg-accent/25 blur-[70px]" aria-hidden="true" />
-          <div className="absolute -bottom-16 right-1/4 w-72 h-72 rounded-full bg-accent/35 dark:bg-accent/22 blur-[60px]" aria-hidden="true" />
-          <div className="absolute top-1/3 right-1/3 w-56 h-56 rounded-full bg-accent/30 dark:bg-accent/18 blur-[50px]" aria-hidden="true" />
-          <div className="absolute bottom-1/4 left-1/4 w-48 h-48 rounded-full bg-accent/25 dark:bg-accent/15 blur-[45px]" aria-hidden="true" />
+          <div className="absolute inset-0 bg-[var(--hero-bg)] dark:bg-[linear-gradient(145deg,_#0f1410_0%,_#152015_30%,_#1a2e1a_55%,_#1e3d1e_80%,_#243d10_100%)]" aria-hidden="true" />
+          <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-accent/45 dark:bg-accent/30 blur-[92px]" aria-hidden="true" />
+          <div className="absolute top-1/2 -left-24 w-80 h-80 rounded-full bg-[#4a9d7a]/50 dark:bg-accent/25 blur-[90px]" aria-hidden="true" />
+          <div className="absolute -bottom-16 right-1/4 w-72 h-72 rounded-full bg-[#7cb88f]/50 dark:bg-accent/22 blur-[84px]" aria-hidden="true" />
           <div
             className="absolute inset-0 opacity-[0.025] dark:opacity-[0.03]"
             style={{
@@ -55,6 +53,14 @@ export function Footer(): ReactNode {
             }}
             aria-hidden="true"
           />
+
+          {/* Ambient network — full-bleed background layer */}
+          <div
+            className="pointer-events-none absolute inset-0 text-accent/18 dark:text-accent/24 max-[850px]:hidden"
+            aria-hidden="true"
+          >
+            <ConnectedDots variant="drift" />
+          </div>
 
           <div className="relative z-10 flex flex-col items-center text-center px-10 py-20 max-[850px]:px-6 max-[850px]:py-14">
             <h2 className="text-5xl max-[850px]:text-3xl text-foreground font-semibold tracking-tight max-w-2xl mb-3 max-[850px]:mb-4 leading-[1.15]">
@@ -88,20 +94,24 @@ export function Footer(): ReactNode {
         </div>
       </div>
 
-      <div className="bg-accent rounded-tr-[3rem] rounded-tl-[3rem] pt-96 pb-16 max-[850px]:pt-72">
+      <div className="rounded-tr-[3rem] rounded-tl-[3rem] pt-96 pb-16 max-[850px]:pt-72 [background:var(--footer-bg)]">
         <div className="max-w-5xl mx-auto px-6">
           <div className="flex items-start justify-between gap-12 max-[850px]:flex-col max-[850px]:gap-10">
             <Link to="/" className="flex items-center gap-2" aria-label="ContApp acasă">
-              <img src="/contapplogo.png" alt="ContApp" className="h-12 w-auto brightness-0" />
+              <img
+                src="/egeslogolighty.png"
+                alt=""
+                className="h-40 max-[850px]:h-24 w-auto [filter:brightness(0)_invert(1)] dark:[filter:brightness(0)]"
+              />
             </Link>
 
             <nav className="flex gap-16 max-[850px]:gap-10 max-[850px]:flex-wrap" aria-label="Footer navigare">
               <div>
-                <h3 className="text-xs font-medium text-neutral-900/50 uppercase tracking-wider mb-4">Produs</h3>
+                <h3 className="text-xs font-medium text-[var(--footer-muted)] uppercase tracking-wider mb-4">Produs</h3>
                 <ul className="space-y-2">
                   {footerLinks.produs.map((link) => (
                     <li key={link.label}>
-                      <a href={link.href} className="text-sm text-neutral-900 hover:text-neutral-900/70 transition-colors">
+                      <a href={link.href} className="text-sm text-[var(--footer-foreground)] hover:opacity-75 transition-opacity">
                         {link.label}
                       </a>
                     </li>
@@ -110,11 +120,11 @@ export function Footer(): ReactNode {
               </div>
 
               <div>
-                <h3 className="text-xs font-medium text-neutral-900/50 uppercase tracking-wider mb-4">Companie</h3>
+                <h3 className="text-xs font-medium text-[var(--footer-muted)] uppercase tracking-wider mb-4">Companie</h3>
                 <ul className="space-y-2">
                   {footerLinks.companie.map((link) => (
                     <li key={link.label}>
-                      <a href={link.href} className="text-sm text-neutral-900 hover:text-neutral-900/70 transition-colors">
+                      <a href={link.href} className="text-sm text-[var(--footer-foreground)] hover:opacity-75 transition-opacity">
                         {link.label}
                       </a>
                     </li>
@@ -123,11 +133,11 @@ export function Footer(): ReactNode {
               </div>
 
               <div>
-                <h3 className="text-xs font-medium text-neutral-900/50 uppercase tracking-wider mb-4">Social</h3>
+                <h3 className="text-xs font-medium text-[var(--footer-muted)] uppercase tracking-wider mb-4">Social</h3>
                 <ul className="space-y-2">
                   {footerLinks.social.map((link) => (
                     <li key={link.label}>
-                      <a href={link.href} className="text-sm text-neutral-900 hover:text-neutral-900/70 transition-colors">
+                      <a href={link.href} className="text-sm text-[var(--footer-foreground)] hover:opacity-75 transition-opacity">
                         {link.label}
                       </a>
                     </li>
@@ -137,8 +147,8 @@ export function Footer(): ReactNode {
             </nav>
           </div>
 
-          <div className="mt-16 pt-6 border-t border-neutral-900/10">
-            <p className="text-sm text-neutral-900/50 text-center">
+          <div className="mt-16 pt-6 border-t border-[color:var(--footer-foreground)]/15">
+            <p className="text-sm text-[var(--footer-muted)] text-center">
               © {new Date().getFullYear()} ContApp. Toate drepturile rezervate. · hello@contapp.ro
             </p>
           </div>

@@ -60,39 +60,25 @@ export interface OrganisationDTO {
 
 // ── Clients ────────────────────────────────────────────────────────────────
 export interface ClientUpsertRequest {
-  cnp: number;
-  user_id: number;
-  organisation_id: number;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  status: string;
-  address: string;
-  signature_id: number;
+  client_type: "person" | "company";
+  first_name?: string | null;
+  last_name?: string | null;
+  cnp?: string | null;
+  company_name?: string | null;
+  cui?: string | null;
+  tva?: boolean | null;
+  responsible_name?: string | null;
+  responsible_email?: string | null;
+  email?: string;
+  phone?: string;
+  status?: string;
+  address?: string;
 }
 
 export interface ClientDTO extends ClientUpsertRequest {
   id: number;
-}
-
-// ── Client Organisations ───────────────────────────────────────────────────
-export interface ClientOrganisationUpsertRequest {
-  cui: number;
-  user_id: number;
-  organisation_id: number;
-  responsible_name: string;
-  responsible_email: string;
-  phone: string;
-  status: string;
-  tva: boolean;
-  address: string;
-  type: string;
-  signature_id: number;
-}
-
-export interface ClientOrganisationDTO extends ClientOrganisationUpsertRequest {
-  id: number;
+  date_added?: string;
+  date_modified?: string;
 }
 
 // ── Signatures ─────────────────────────────────────────────────────────────
@@ -172,19 +158,25 @@ export interface FileDTO {
 
 // ── Contract Templates ─────────────────────────────────────────────────────
 export interface ContractTemplateCreateRequest {
-  user_id: number;
-  organisation_id: number;
   name: string;
   contract_type: string;
+  content_json?: Record<string, unknown> | string | null;
+}
+
+export interface ContractTemplateUpdateRequest
+  extends ContractTemplateCreateRequest {
+  status?: string;
 }
 
 export interface ContractTemplateDTO {
   id: number;
-  user_id: number;
-  organisation_id: number;
+  user_id?: number;
+  organisation_id?: number;
   name: string;
   contract_type: string;
+  content_json?: Record<string, unknown> | string | null;
   date_added: string;
+  date_modified?: string;
 }
 
 // ── Template Fields ────────────────────────────────────────────────────────
@@ -206,18 +198,21 @@ export interface TemplateFieldDTO {
 // ── Contract Invites ───────────────────────────────────────────────────────
 export interface ContractInviteCreateRequest {
   template_id: number;
-  user_id: number;
+  user_id?: number;
   client_id: number;
   remarks: string;
   expiration_date: string;
+  public_token?: string;
 }
 
 export interface ContractInviteDTO {
   id: number;
   template_id: number;
-  user_id: number;
+  user_id?: number;
   client_id: number;
   remarks: string;
+  status?: string;
+  public_token?: string;
   expiration_date: string;
   date_added: string;
 }
@@ -225,9 +220,9 @@ export interface ContractInviteDTO {
 // ── Contract Submissions ───────────────────────────────────────────────────
 export interface ContractSubmissionCreateRequest {
   invite_id: number;
-  user_id: number;
+  user_id?: number;
   client_id: number;
-  pdf_file_id: number;
+  pdf_file_id?: number;
   remarks: string;
   status: string;
   expiration_date: string;
@@ -236,9 +231,9 @@ export interface ContractSubmissionCreateRequest {
 export interface ContractSubmissionDTO {
   id: number;
   invite_id: number;
-  user_id: number;
+  user_id?: number;
   client_id: number;
-  pdf_file_id: number;
+  pdf_file_id?: number;
   remarks: string;
   status: string;
   expiration_date: string;

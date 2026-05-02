@@ -66,7 +66,7 @@ const categoryStyles: Record<
     chip: "bg-foreground/8 text-foreground",
     block:
       "bg-foreground/8 border-l-[3px] border-foreground/40 text-foreground",
-    label: "Task",
+    label: "Ticket",
   },
   personal: {
     dot: "bg-foreground",

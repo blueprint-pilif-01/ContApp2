@@ -221,7 +221,7 @@ function DashboardCard(): ReactNode {
               <div className="flex-1 rounded-lg border border-border bg-background px-2 py-1">
                 <span className="text-xs text-muted-foreground">Numele șablonului...</span>
               </div>
-              <span className="text-[10px] bg-accent text-black px-2 py-1 rounded font-medium">Salvează</span>
+              <span className="text-[10px] bg-accent text-accent-contrast px-2 py-1 rounded font-medium">Salvează</span>
             </div>
             {/* Toolbar */}
             <div className="flex flex-wrap gap-0.5 px-2 py-1.5 border border-border rounded-t-lg bg-background shrink-0">

@@ -48,9 +48,18 @@ export function Header(): ReactNode {
       transition={{ duration: 0.5, ease }}
       className="fixed shadow-2xl/20 rounded-b-4xl top-2.5 left-1/2 -translate-x-1/2 w-full max-w-5xl bg-frame z-9998 max-[850px]:top-0 max-[850px]:left-0 max-[850px]:right-0 max-[850px]:translate-x-0 max-[850px]:w-full max-[850px]:max-w-none max-[850px]:rounded-none max-[850px]:rounded-b-4xl max-[850px]:overflow-hidden"
     >
-      <div className="h-20 max-[850px]:h-18 flex items-center justify-between px-4 max-[850px]:px-6">
-        <Link to="/" className="flex items-center gap-2 ml-4 max-[850px]:ml-0 shrink-0">
-          <img src="/contapplogo.png" alt="ContApp" className="h-11 w-auto" />
+      <div className="flex h-20 items-center justify-between px-4 py-2 max-[850px]:h-[4.25rem] max-[850px]:px-6 max-[850px]:py-2">
+        <Link to="/" className="flex shrink-0 items-center gap-2 ml-4 max-[850px]:ml-0" aria-label="ContApp acasă">
+          <img
+            src="/egeslogolighty.png"
+            alt=""
+            className="h-12 w-auto max-[850px]:h-10 dark:hidden"
+          />
+          <img
+            src="/egeslogodark.png"
+            alt=""
+            className="hidden h-12 w-auto max-[850px]:h-10 dark:block"
+          />
         </Link>
 
         <nav className="flex items-center gap-0.5 max-[850px]:hidden" aria-label="Navigare principală">
@@ -77,7 +86,7 @@ export function Header(): ReactNode {
           <a href="#contact" className="group relative inline-flex items-center">
             <span className="absolute right-0 inset-y-0 w-[calc(100%-1.5rem)] rounded-xl bg-accent" />
             <span className="relative z-10 px-5 py-3 rounded-xl bg-foreground text-background text-sm font-medium whitespace-nowrap">Solicită ofertă</span>
-            <span className="relative -left-px z-10 w-10 h-10 rounded-xl flex items-center justify-center text-black">
+            <span className="relative -left-px z-10 w-10 h-10 rounded-xl flex items-center justify-center text-accent-contrast">
               <ArrowDownRight className="w-4 h-4 transition-transform duration-300 group-hover:-rotate-45" />
             </span>
           </a>
@@ -124,7 +133,7 @@ export function Header(): ReactNode {
                 <a href="#contact" className="group relative inline-flex items-center" onClick={closeMobile}>
                   <span className="absolute right-0 inset-y-0 w-[calc(100%-1.5rem)] rounded-2xl bg-accent" />
                   <span className="relative z-10 px-5 py-3 rounded-2xl bg-foreground text-background text-sm font-medium">Solicită ofertă</span>
-                  <span className="relative -left-px z-10 w-10 h-10 rounded-2xl flex items-center justify-center text-foreground">
+                  <span className="relative -left-px z-10 w-10 h-10 rounded-2xl flex items-center justify-center text-accent-contrast">
                     <ArrowDownRight className="w-4 h-4 transition-transform duration-300 group-hover:-rotate-45" />
                   </span>
                 </a>
