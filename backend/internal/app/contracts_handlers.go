@@ -1,6 +1,7 @@
 package app
 
 import (
+	"backend/internal/dto"
 	"backend/internal/models"
 	"backend/internal/platform/httpx"
 	"crypto/rand"
@@ -23,24 +24,6 @@ type contractTemplateRequest struct {
 	OrganisationID int64           `json:"organisation_id"`
 }
 
-type contractInviteRequest struct {
-	models.ContractInvite
-	PublicToken  string `json:"public_token"`
-	UserID       int64  `json:"user_id"`
-	DateAdded    string `json:"date_added"`
-	DateModified string `json:"date_modified"`
-}
-
-type contractSubmissionRequest struct {
-	models.ContractSubmission
-	UserID         int64   `json:"user_id"`
-	Remarks        string  `json:"remarks"`
-	ExpirationDate string  `json:"expiration_date"`
-	DateAdded      string  `json:"date_added"`
-	DateModified   string  `json:"date_modified"`
-	SignatureImage *string `json:"signature_image"`
-}
-
 func (a *App) listContractTemplates(w http.ResponseWriter, r *http.Request) {
 	claims, ok := accountClaims(w, r)
 	if !ok {
@@ -51,7 +34,7 @@ func (a *App) listContractTemplates(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not list contract templates")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"templates": items})
+	httpx.JSON(w, http.StatusOK, map[string]any{"templates": dto.ContractTemplatesFromModels(items)})
 }
 
 func (a *App) createContractTemplate(w http.ResponseWriter, r *http.Request) {
@@ -75,7 +58,7 @@ func (a *App) createContractTemplate(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not create contract template")
 		return
 	}
-	httpx.JSON(w, http.StatusCreated, item)
+	httpx.JSON(w, http.StatusCreated, dto.ContractTemplateFromModel(item))
 }
 
 func (a *App) getContractTemplate(w http.ResponseWriter, r *http.Request) {
@@ -93,7 +76,7 @@ func (a *App) getContractTemplate(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusNotFound, "contract template not found")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, item)
+	httpx.JSON(w, http.StatusOK, dto.ContractTemplateFromModel(*item))
 }
 
 func (a *App) updateContractTemplate(w http.ResponseWriter, r *http.Request) {
@@ -122,7 +105,7 @@ func (a *App) updateContractTemplate(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not update contract template")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, item)
+	httpx.JSON(w, http.StatusOK, dto.ContractTemplateFromModel(item))
 }
 
 func contractTemplateFromRequest(input contractTemplateRequest) models.ContractTemplate {
@@ -145,6 +128,30 @@ func contractTemplateFromRequest(input contractTemplateRequest) models.ContractT
 		ContractType: contractType,
 		ContentJSON:  content,
 		Status:       strings.TrimSpace(input.Status),
+	}
+}
+
+func contractInviteFromRequest(input dto.ContractInviteRequest) models.ContractInvite {
+	return models.ContractInvite{
+		TemplateID:     input.TemplateID,
+		ClientID:       input.ClientID,
+		TokenHash:      input.TokenHash,
+		Status:         input.Status,
+		Remarks:        input.Remarks,
+		ExpirationDate: input.ExpirationDate,
+	}
+}
+
+func contractSubmissionFromRequest(input dto.ContractSubmissionRequest) models.ContractSubmission {
+	return models.ContractSubmission{
+		InviteID:       input.InviteID,
+		TemplateID:     input.TemplateID,
+		ClientID:       input.ClientID,
+		FilledFields:   input.FilledFields,
+		ContractNumber: input.ContractNumber,
+		PDFFileID:      input.PDFFileID,
+		Status:         input.Status,
+		SignedAt:       input.SignedAt,
 	}
 }
 
@@ -175,11 +182,7 @@ func (a *App) listContractInvites(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not list contract invites")
 		return
 	}
-	response := make([]map[string]any, 0, len(items))
-	for _, item := range items {
-		response = append(response, contractInviteResponse(item))
-	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"invites": response})
+	httpx.JSON(w, http.StatusOK, map[string]any{"invites": dto.ContractInvitesFromModels(items)})
 }
 
 func (a *App) createContractInvite(w http.ResponseWriter, r *http.Request) {
@@ -187,12 +190,12 @@ func (a *App) createContractInvite(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var input contractInviteRequest
+	var input dto.ContractInviteRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	item := input.ContractInvite
+	item := contractInviteFromRequest(input)
 	item.TokenHash = strings.TrimSpace(item.TokenHash)
 	if item.TokenHash == "" {
 		item.TokenHash = strings.TrimSpace(input.PublicToken)
@@ -206,7 +209,7 @@ func (a *App) createContractInvite(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not create contract invite")
 		return
 	}
-	httpx.JSON(w, http.StatusCreated, contractInviteResponse(item))
+	httpx.JSON(w, http.StatusCreated, dto.ContractInviteFromModel(item))
 }
 
 func (a *App) updateContractInvite(w http.ResponseWriter, r *http.Request) {
@@ -219,12 +222,12 @@ func (a *App) updateContractInvite(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	var input contractInviteRequest
+	var input dto.ContractInviteRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	item := input.ContractInvite
+	item := contractInviteFromRequest(input)
 	item.OrganisationID = claims.OrganisationID
 	item.ID = id
 	if item.Status == "" {
@@ -235,7 +238,7 @@ func (a *App) updateContractInvite(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not update contract invite")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, contractInviteResponse(*updated))
+	httpx.JSON(w, http.StatusOK, dto.ContractInviteFromModel(*updated))
 }
 
 func (a *App) getContractInvite(w http.ResponseWriter, r *http.Request) {
@@ -253,7 +256,7 @@ func (a *App) getContractInvite(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusNotFound, "contract invite not found")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, contractInviteResponse(*item))
+	httpx.JSON(w, http.StatusOK, dto.ContractInviteFromModel(*item))
 }
 
 func (a *App) deleteContractInvite(w http.ResponseWriter, r *http.Request) {
@@ -283,7 +286,7 @@ func (a *App) listContractSubmissions(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not list contract submissions")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"submissions": items})
+	httpx.JSON(w, http.StatusOK, map[string]any{"submissions": dto.ContractSubmissionsFromModels(items)})
 }
 
 func (a *App) createContractSubmission(w http.ResponseWriter, r *http.Request) {
@@ -291,12 +294,12 @@ func (a *App) createContractSubmission(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var input contractSubmissionRequest
+	var input dto.ContractSubmissionRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	item := input.ContractSubmission
+	item := contractSubmissionFromRequest(input)
 	item.OrganisationID = claims.OrganisationID
 	if item.FilledFields == nil {
 		item.FilledFields = json.RawMessage(`{}`)
@@ -327,7 +330,7 @@ func (a *App) createContractSubmission(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not create contract submission")
 		return
 	}
-	httpx.JSON(w, http.StatusCreated, item)
+	httpx.JSON(w, http.StatusCreated, dto.ContractSubmissionFromModel(item))
 }
 
 func (a *App) getContractSubmission(w http.ResponseWriter, r *http.Request) {
@@ -345,7 +348,7 @@ func (a *App) getContractSubmission(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusNotFound, "contract submission not found")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, item)
+	httpx.JSON(w, http.StatusOK, dto.ContractSubmissionFromModel(*item))
 }
 
 func (a *App) deleteContractSubmission(w http.ResponseWriter, r *http.Request) {
@@ -413,30 +416,6 @@ func (a *App) downloadContractSubmissionSignature(w http.ResponseWriter, r *http
 	w.Header().Set("Content-Disposition", `attachment; filename="signature-`+strconv.FormatInt(submission.ID, 10)+`.png"`)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(submission.SignatureImage)
-}
-
-func contractInviteResponse(invite models.ContractInvite) map[string]any {
-	return map[string]any{
-		"id":              invite.ID,
-		"organisation_id": invite.OrganisationID,
-		"template_id":     invite.TemplateID,
-		"client_id":       invite.ClientID,
-		"user_id":         invite.CreatedByID,
-		"created_by_id":   invite.CreatedByID,
-		"token_hash":      invite.TokenHash,
-		"public_token":    invite.TokenHash,
-		"status":          invite.Status,
-		"remarks":         invite.Remarks,
-		"expiration_date": invite.ExpirationDate,
-		"sent_at":         invite.SentAt,
-		"viewed_at":       invite.ViewedAt,
-		"revoked_at":      invite.RevokedAt,
-		"signed_at":       invite.SignedAt,
-		"created_at":      invite.CreatedAt,
-		"updated_at":      invite.UpdatedAt,
-		"date_added":      invite.CreatedAt,
-		"date_modified":   invite.UpdatedAt,
-	}
 }
 
 func newPublicToken() string {

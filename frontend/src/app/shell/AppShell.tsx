@@ -6,12 +6,10 @@ import { ImpersonationBanner } from "./ImpersonationBanner";
 import { CommandPalette } from "./CommandPalette";
 import { BreadcrumbLabelProvider } from "../../components/ui/BreadcrumbContext";
 import { PageTransition } from "../../components/ui/PageTransition";
-import { useFeatureSeed } from "../../hooks/useFeatureSeed";
 import { useGlobalShortcuts } from "../../hooks/useGlobalShortcuts";
 import { ShortcutsOverlay } from "../../components/ui/ShortcutsOverlay";
 
 export function AppShell() {
-  useFeatureSeed("workspace", "seed-v1");
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   useGlobalShortcuts(() => setShowShortcuts((v) => !v));

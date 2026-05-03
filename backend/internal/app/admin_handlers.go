@@ -1,6 +1,7 @@
 package app
 
 import (
+	"backend/internal/dto"
 	"backend/internal/models"
 	"backend/internal/platform/auth"
 	"backend/internal/platform/httpx"
@@ -131,30 +132,6 @@ func (a *App) getAdminDashboard(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, response)
 }
 
-type adminUserResponse struct {
-	ID             int64      `json:"id"`
-	Name           string     `json:"name"`
-	Email          string     `json:"email"`
-	Status         string     `json:"status"`
-	Type           string     `json:"type,omitempty"`
-	Phone          *string    `json:"phone,omitempty"`
-	Title          *string    `json:"title,omitempty"`
-	OrganisationID *int64     `json:"organisation_id,omitempty"`
-	DateAdded      *time.Time `json:"date_added,omitempty"`
-}
-
-type adminUserRequest struct {
-	FirstName      string `json:"first_name"`
-	LastName       string `json:"last_name"`
-	Email          string `json:"email"`
-	Phone          string `json:"phone"`
-	Type           string `json:"type"`
-	Status         string `json:"status"`
-	OrganisationID int64  `json:"organisation_id"`
-	Title          string `json:"title"`
-	Password       string `json:"password"`
-}
-
 func (a *App) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := queryAdminUsers(r.Context(), a.Repo.Connection())
 	if err != nil {
@@ -165,12 +142,12 @@ func (a *App) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) createAdminUser(w http.ResponseWriter, r *http.Request) {
-	var input adminUserRequest
+	var input dto.AdminUserRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	input.normalize()
+	input.Normalize()
 	if input.FirstName == "" && input.LastName == "" {
 		httpx.Error(w, http.StatusBadRequest, "name is required")
 		return
@@ -203,12 +180,12 @@ func (a *App) updateAdminUser(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	var input adminUserRequest
+	var input dto.AdminUserRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	input.normalize()
+	input.Normalize()
 	user, err := updateAdminUserRecord(r.Context(), a.Repo.Connection(), id, input)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "could not update user")
@@ -315,17 +292,7 @@ func minInt(a, b int) int {
 	return b
 }
 
-func (input *adminUserRequest) normalize() {
-	input.FirstName = strings.TrimSpace(input.FirstName)
-	input.LastName = strings.TrimSpace(input.LastName)
-	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
-	input.Phone = strings.TrimSpace(input.Phone)
-	input.Type = strings.TrimSpace(input.Type)
-	input.Status = strings.TrimSpace(input.Status)
-	input.Title = strings.TrimSpace(input.Title)
-}
-
-func queryAdminUsers(ctx context.Context, db *sql.DB) ([]adminUserResponse, error) {
+func queryAdminUsers(ctx context.Context, db *sql.DB) ([]dto.AdminUserResponse, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT
 			a.id,
@@ -355,9 +322,9 @@ func queryAdminUsers(ctx context.Context, db *sql.DB) ([]adminUserResponse, erro
 	}
 	defer rows.Close()
 
-	users := make([]adminUserResponse, 0)
+	users := make([]dto.AdminUserResponse, 0)
 	for rows.Next() {
-		var user adminUserResponse
+		var user dto.AdminUserResponse
 		var userType string
 		if err := rows.Scan(
 			&user.ID,
@@ -382,7 +349,7 @@ func queryAdminUsers(ctx context.Context, db *sql.DB) ([]adminUserResponse, erro
 	return users, rows.Err()
 }
 
-func insertAdminUser(ctx context.Context, db *sql.DB, input adminUserRequest, passwordHash string) (*adminUserResponse, error) {
+func insertAdminUser(ctx context.Context, db *sql.DB, input dto.AdminUserRequest, passwordHash string) (*dto.AdminUserResponse, error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -410,19 +377,26 @@ func insertAdminUser(ctx context.Context, db *sql.DB, input adminUserRequest, pa
 		if input.Title != "" {
 			title = &input.Title
 		}
-		_, err = tx.ExecContext(ctx, `
+		var membershipID int64
+		err = tx.QueryRowContext(ctx, `
 			INSERT INTO organisation_memberships (organisation_id, account_id, job_title, status, joined_at)
 			VALUES ($1, $2, $3, $4, now())
-		`, input.OrganisationID, accountID, title, membershipStatus(input.Status))
+			RETURNING id
+		`, input.OrganisationID, accountID, title, membershipStatus(input.Status)).Scan(&membershipID)
 		if err != nil {
 			return nil, err
+		}
+		if adminUserTypeHasOwnerPermissions(input.Type) {
+			if err := assignOwnerRoleToMembership(ctx, tx, input.OrganisationID, membershipID); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
-	return &adminUserResponse{
+	return &dto.AdminUserResponse{
 		ID:             accountID,
 		Name:           strings.TrimSpace(input.FirstName + " " + input.LastName),
 		Email:          input.Email,
@@ -435,7 +409,7 @@ func insertAdminUser(ctx context.Context, db *sql.DB, input adminUserRequest, pa
 	}, nil
 }
 
-func updateAdminUserRecord(ctx context.Context, db *sql.DB, accountID int64, input adminUserRequest) (*adminUserResponse, error) {
+func updateAdminUserRecord(ctx context.Context, db *sql.DB, accountID int64, input dto.AdminUserRequest) (*dto.AdminUserResponse, error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -469,23 +443,30 @@ func updateAdminUserRecord(ctx context.Context, db *sql.DB, accountID int64, inp
 		if input.Title != "" {
 			title = &input.Title
 		}
-		_, err = tx.ExecContext(ctx, `
+		var membershipID int64
+		err = tx.QueryRowContext(ctx, `
 			INSERT INTO organisation_memberships (organisation_id, account_id, job_title, status, joined_at)
 			VALUES ($1, $2, $3, $4, now())
 			ON CONFLICT (organisation_id, account_id) WHERE deleted_at IS NULL
 			DO UPDATE SET job_title = EXCLUDED.job_title,
 				status = EXCLUDED.status,
 				updated_at = now()
-		`, input.OrganisationID, accountID, title, membershipStatus(input.Status))
+			RETURNING id
+		`, input.OrganisationID, accountID, title, membershipStatus(input.Status)).Scan(&membershipID)
 		if err != nil {
 			return nil, err
+		}
+		if adminUserTypeHasOwnerPermissions(input.Type) {
+			if err := assignOwnerRoleToMembership(ctx, tx, input.OrganisationID, membershipID); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
-	return &adminUserResponse{
+	return &dto.AdminUserResponse{
 		ID:             accountID,
 		Name:           strings.TrimSpace(firstName + " " + lastName),
 		Email:          email,
@@ -549,6 +530,44 @@ func membershipStatus(status string) string {
 	}
 }
 
+func adminUserTypeHasOwnerPermissions(userType string) bool {
+	switch strings.TrimSpace(userType) {
+	case "business_owner", "administrator":
+		return true
+	default:
+		return false
+	}
+}
+
+func assignOwnerRoleToMembership(ctx context.Context, tx *sql.Tx, organisationID, membershipID int64) error {
+	var roleID int64
+	if err := tx.QueryRowContext(ctx, `
+		INSERT INTO roles (organisation_id, slug, name, system_role)
+		VALUES ($1, 'owner', 'Owner', true)
+		ON CONFLICT (organisation_id, slug)
+		DO UPDATE SET name = EXCLUDED.name, system_role = EXCLUDED.system_role
+		RETURNING id
+	`, organisationID).Scan(&roleID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO role_permissions (role_id, permission_id)
+		SELECT $1, id
+		FROM permissions
+		ON CONFLICT DO NOTHING
+	`, roleID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO membership_roles (membership_id, role_id)
+		VALUES ($1, $2)
+		ON CONFLICT DO NOTHING
+	`, membershipID, roleID); err != nil {
+		return err
+	}
+	return nil
+}
+
 func defaultString(value, fallback string) string {
 	if value == "" {
 		return fallback
@@ -576,24 +595,35 @@ func (a *App) listAdminOrganisations(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not list organisations")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"organisations": organisations})
+	response := make([]dto.AdminOrganisationResponse, 0, len(organisations))
+	for _, organisation := range organisations {
+		response = append(response, dto.NewAdminOrganisationResponse(organisation, dto.AdminOrganisationRequest{}))
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"organisations": response})
 }
 
 func (a *App) createAdminOrganisation(w http.ResponseWriter, r *http.Request) {
-	var organisation models.Organisation
-	if err := httpx.DecodeJSON(r, &organisation); err != nil {
+	var input dto.AdminOrganisationRequest
+	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if organisation.Name == "" {
+	input.Normalize()
+	if input.Name == "" {
 		httpx.Error(w, http.StatusBadRequest, "name is required")
 		return
+	}
+	organisation := models.Organisation{
+		Name:    input.Name,
+		CUI:     stringPtrOrNil(anyToString(input.CUI)),
+		Address: stringPtrOrNil(input.Address),
+		Status:  dto.AdminOrganisationStatus(input.Status),
 	}
 	if err := a.Repo.CreateOrganisation(r.Context(), &organisation); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "could not create organisation")
 		return
 	}
-	httpx.JSON(w, http.StatusCreated, organisation)
+	httpx.JSON(w, http.StatusCreated, dto.NewAdminOrganisationResponse(organisation, input))
 }
 
 func (a *App) getAdminOrganisation(w http.ResponseWriter, r *http.Request) {
@@ -607,11 +637,7 @@ func (a *App) getAdminOrganisation(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusNotFound, "organisation not found")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, organisation)
-}
-
-type statusRequest struct {
-	Status string `json:"status"`
+	httpx.JSON(w, http.StatusOK, dto.NewAdminOrganisationResponse(*organisation, dto.AdminOrganisationRequest{}))
 }
 
 func (a *App) updateAdminOrganisationStatus(w http.ResponseWriter, r *http.Request) {
@@ -620,7 +646,7 @@ func (a *App) updateAdminOrganisationStatus(w http.ResponseWriter, r *http.Reque
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	var input statusRequest
+	var input dto.StatusRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil || input.Status == "" {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -648,7 +674,10 @@ func (a *App) listAdminOrganisationFeatures(w http.ResponseWriter, r *http.Reque
 		httpx.Error(w, http.StatusInternalServerError, "could not list organisation feature limits")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"features": features, "limits": limits})
+	httpx.JSON(w, http.StatusOK, map[string]any{
+		"features": dto.OrganisationFeaturesFromModels(features),
+		"limits":   dto.OrganisationFeatureLimitsFromModels(limits),
+	})
 }
 
 func (a *App) listAdminOrganisationSubscriptions(w http.ResponseWriter, r *http.Request) {
@@ -662,5 +691,5 @@ func (a *App) listAdminOrganisationSubscriptions(w http.ResponseWriter, r *http.
 		httpx.Error(w, http.StatusInternalServerError, "could not list organisation subscriptions")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"subscriptions": subscriptions})
+	httpx.JSON(w, http.StatusOK, map[string]any{"subscriptions": dto.SubscriptionsFromModels(subscriptions)})
 }

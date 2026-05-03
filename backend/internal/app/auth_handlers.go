@@ -1,50 +1,15 @@
 package app
 
 import (
+	"backend/internal/dto"
 	"backend/internal/models"
 	"backend/internal/platform/auth"
 	"backend/internal/platform/httpx"
 	"database/sql"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 )
-
-type loginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type loginResponse struct {
-	AccessToken string              `json:"access_token"`
-	TokenType   string              `json:"token_type"`
-	Account     *accountResponse    `json:"account,omitempty"`
-	Admin       *adminResponse      `json:"admin,omitempty"`
-	Workspace   *workspaceResponse  `json:"workspace,omitempty"`
-	Workspaces  []workspaceResponse `json:"workspaces,omitempty"`
-}
-
-type accountResponse struct {
-	ID        int64  `json:"id"`
-	Email     string `json:"email"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-}
-
-type adminResponse struct {
-	ID        int64  `json:"id"`
-	Email     string `json:"email"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-}
-
-type workspaceResponse struct {
-	MembershipID   int64  `json:"membership_id"`
-	OrganisationID int64  `json:"organisation_id"`
-	Name           string `json:"name"`
-	RoleLabel      string `json:"role_label"`
-}
 
 const (
 	accountAccessCookieName = "account_access_token"
@@ -52,13 +17,13 @@ const (
 )
 
 func (a *App) loginAccount(w http.ResponseWriter, r *http.Request) {
-	var input loginRequest
+	var input dto.LoginRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
 		a.Logger.Warn("account login rejected", "reason", "invalid_body", "remote_addr", r.RemoteAddr)
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	input.normalize()
+	input.Normalize()
 
 	account, err := a.Repo.GetAccountByEmail(r.Context(), input.Email)
 	if err != nil {
@@ -100,23 +65,23 @@ func (a *App) loginAccount(w http.ResponseWriter, r *http.Request) {
 	_ = a.Repo.UpdateAccountLastLogin(r.Context(), account.ID)
 	a.Logger.Info("account login succeeded", "account_id", account.ID, "email", account.Email, "organisation_id", selected.OrganisationID, "membership_id", selected.MembershipID, "remote_addr", r.RemoteAddr)
 
-	httpx.JSON(w, http.StatusOK, loginResponse{
+	httpx.JSON(w, http.StatusOK, dto.LoginResponse{
 		AccessToken: token,
 		TokenType:   "Bearer",
-		Account:     accountPayload(account),
-		Workspace:   workspacePayload(&selected),
-		Workspaces:  workspacePayloads(workspaces),
+		Account:     dto.AccountFromModel(account),
+		Workspace:   dto.WorkspaceFromModel(&selected),
+		Workspaces:  dto.WorkspacesFromModels(workspaces),
 	})
 }
 
 func (a *App) loginAdmin(w http.ResponseWriter, r *http.Request) {
-	var input loginRequest
+	var input dto.LoginRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
 		a.Logger.Warn("admin login rejected", "reason", "invalid_body", "remote_addr", r.RemoteAddr)
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	input.normalize()
+	input.Normalize()
 
 	admin, err := a.Repo.GetAdminByEmail(r.Context(), input.Email)
 	if err != nil {
@@ -144,15 +109,11 @@ func (a *App) loginAdmin(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, a.accessCookie(adminAccessCookieName, token))
 	a.Logger.Info("admin login succeeded", "admin_id", admin.ID, "email", admin.Email, "remote_addr", r.RemoteAddr)
 
-	httpx.JSON(w, http.StatusOK, loginResponse{
+	httpx.JSON(w, http.StatusOK, dto.LoginResponse{
 		AccessToken: token,
 		TokenType:   "Bearer",
-		Admin:       adminPayload(admin),
+		Admin:       dto.AdminFromModel(admin),
 	})
-}
-
-func (input *loginRequest) normalize() {
-	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
 }
 
 func (a *App) logAuthFailure(actorType, email string, r *http.Request, reason string, err error) {
@@ -212,10 +173,10 @@ func (a *App) refreshToken(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.SetCookie(w, a.accessCookie(accountAccessCookieName, token))
-		httpx.JSON(w, http.StatusOK, loginResponse{
+		httpx.JSON(w, http.StatusOK, dto.LoginResponse{
 			AccessToken: token,
 			TokenType:   "Bearer",
-			Workspace:   workspacePayload(workspace),
+			Workspace:   dto.WorkspaceFromModel(workspace),
 		})
 	case "admin":
 		if _, err := a.Repo.GetAdminByID(r.Context(), session.SubjectID); err != nil {
@@ -232,7 +193,7 @@ func (a *App) refreshToken(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.SetCookie(w, a.accessCookie(adminAccessCookieName, token))
-		httpx.JSON(w, http.StatusOK, loginResponse{
+		httpx.JSON(w, http.StatusOK, dto.LoginResponse{
 			AccessToken: token,
 			TokenType:   "Bearer",
 		})
@@ -299,7 +260,7 @@ func (a *App) authMe(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusUnauthorized, "missing authentication")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, claims)
+	httpx.JSON(w, http.StatusOK, dto.AuthMeFromClaims(claims))
 }
 
 func (a *App) listAccountOrganisations(w http.ResponseWriter, r *http.Request) {
@@ -315,11 +276,7 @@ func (a *App) listAccountOrganisations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.JSON(w, http.StatusOK, map[string]any{"workspaces": workspacePayloads(workspaces)})
-}
-
-type switchOrganisationRequest struct {
-	OrganisationID int64 `json:"organisation_id"`
+	httpx.JSON(w, http.StatusOK, map[string]any{"workspaces": dto.WorkspacesFromModels(workspaces)})
 }
 
 func (a *App) switchOrganisation(w http.ResponseWriter, r *http.Request) {
@@ -329,7 +286,7 @@ func (a *App) switchOrganisation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input switchOrganisationRequest
+	var input dto.SwitchOrganisationRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil || input.OrganisationID == 0 {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -352,55 +309,11 @@ func (a *App) switchOrganisation(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, a.accessCookie(accountAccessCookieName, token))
 
-	httpx.JSON(w, http.StatusOK, loginResponse{
+	httpx.JSON(w, http.StatusOK, dto.LoginResponse{
 		AccessToken: token,
 		TokenType:   "Bearer",
-		Workspace:   workspacePayload(workspace),
+		Workspace:   dto.WorkspaceFromModel(workspace),
 	})
-}
-
-func accountPayload(account *models.Account) *accountResponse {
-	return &accountResponse{
-		ID:        account.ID,
-		Email:     account.Email,
-		FirstName: account.FirstName,
-		LastName:  account.LastName,
-	}
-}
-
-func adminPayload(admin *models.Admin) *adminResponse {
-	return &adminResponse{
-		ID:        admin.ID,
-		Email:     admin.Email,
-		FirstName: admin.FirstName,
-		LastName:  admin.LastName,
-	}
-}
-
-func workspacePayload(workspace *models.AccountWorkspace) *workspaceResponse {
-	if workspace == nil {
-		return nil
-	}
-
-	roleLabel := ""
-	if workspace.JobTitle != nil {
-		roleLabel = *workspace.JobTitle
-	}
-
-	return &workspaceResponse{
-		MembershipID:   workspace.MembershipID,
-		OrganisationID: workspace.OrganisationID,
-		Name:           workspace.Organisation,
-		RoleLabel:      roleLabel,
-	}
-}
-
-func workspacePayloads(workspaces []models.AccountWorkspace) []workspaceResponse {
-	out := make([]workspaceResponse, 0, len(workspaces))
-	for i := range workspaces {
-		out = append(out, *workspacePayload(&workspaces[i]))
-	}
-	return out
 }
 
 func (a *App) refreshClaimsFromCookie(r *http.Request) (*auth.Claims, error) {

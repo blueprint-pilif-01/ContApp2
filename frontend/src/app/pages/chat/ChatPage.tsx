@@ -23,7 +23,7 @@ import { useCollectionCreate, useCollectionList } from "../../../hooks/useCollec
 import { useExtensions } from "../../../hooks/useExtensions";
 import { useToast } from "../../../components/ui/Toast";
 import { api } from "../../../lib/api";
-import { deriveTicket } from "../../../lib/mockAI";
+import { deriveTicket } from "../../../lib/ai";
 import { fmtRelative, cn } from "../../../lib/utils";
 import { MessageTemplates } from "./MessageTemplates";
 

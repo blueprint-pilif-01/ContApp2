@@ -232,7 +232,7 @@ export default function InvitesPage() {
       id: "status",
       title: `Status curent: ${invite.status}`,
       description: invite.remarks || "Fără observații interne.",
-      at: invite.date_modified ? fmtRelative(invite.date_modified) : "mock",
+      at: invite.date_modified ? fmtRelative(invite.date_modified) : "necunoscut",
       icon: <Send className="w-4 h-4" />,
       tone: invite.status === "signed" ? "success" : invite.status === "expired" || invite.status === "revoked" ? "danger" : "neutral",
     },

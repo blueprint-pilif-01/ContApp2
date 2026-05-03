@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Bell, Menu, Moon, Sun, CheckCheck, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Breadcrumbs, APP_SEGMENTS } from "../../components/ui/Breadcrumbs";
-import { MockHealthPill } from "./MockHealthPill";
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
@@ -81,7 +80,6 @@ export function Topbar({
       </div>
 
       <div className="flex items-center gap-2">
-        <MockHealthPill />
         {mounted && (
           <button
             type="button"

@@ -169,7 +169,7 @@ function ProfileSection() {
         last_name: lastName,
         email,
         phone,
-        password: "mock-keep",
+        password: "",
         status: principal.status,
         signature_id: 0,
       },

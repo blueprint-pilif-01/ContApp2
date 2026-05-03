@@ -179,7 +179,7 @@ export function Hero(): ReactNode {
             className="relative rounded-2xl overflow-hidden border border-border shadow-2xl/5 mask-[linear-gradient(to_bottom,black_50%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]"
           >
             <img
-              src="/dashboardmock.png"
+              src="/dashboard-preview.png"
               alt="Dashboard preview"
               className="w-full h-auto invert dark:invert-0 dark:contrast-100 contrast-125"
             />

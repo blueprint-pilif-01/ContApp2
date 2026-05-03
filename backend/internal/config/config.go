@@ -54,7 +54,7 @@ func Load() (Config, error) {
 		RefreshCookiePath:   getEnv("APP_REFRESH_COOKIE_PATH", "/api/v1/auth"),
 		RefreshCookieDomain: getEnv("APP_REFRESH_COOKIE_DOMAIN", ""),
 		RefreshCookieSecure: getBool("APP_REFRESH_COOKIE_SECURE", false),
-		CORSAllowedOrigins:  getCSVSet("APP_CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000", "http://localhost:5173"}),
+		CORSAllowedOrigins:  getCSVSet("APP_CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000", "http://localhost:5173", "http://localhost:5174"}),
 	}, nil
 }
 

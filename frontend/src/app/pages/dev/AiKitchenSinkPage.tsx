@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AIGradientBorder, AIResultCard, AISparkleButton, AIShimmerText, AIThinkingBlob } from "../../../components/ai";
 import { PageHeader } from "../../../components/ui/PageHeader";
-import { summarize } from "../../../lib/mockAI";
+import { summarize } from "../../../lib/ai";
 
 export default function AiKitchenSinkPage() {
   const [loading, setLoading] = useState(false);

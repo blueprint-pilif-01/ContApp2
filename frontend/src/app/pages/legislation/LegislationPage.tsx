@@ -18,7 +18,7 @@ import {
   AIShimmerText,
   AISparkleButton,
 } from "../../../components/ai";
-import { summarize, topicDigest } from "../../../lib/mockAI";
+import { summarize, topicDigest } from "../../../lib/ai";
 import { fmtRelative, cn } from "../../../lib/utils";
 
 type LegislationItem = {

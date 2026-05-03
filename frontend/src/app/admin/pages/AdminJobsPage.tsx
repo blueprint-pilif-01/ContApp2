@@ -70,7 +70,7 @@ export default function AdminJobsPage() {
       <SectionCard
         icon={Play}
         title="Trigger manual"
-        description="Declanșează un job acum (mock — niciun side-effect real)."
+        description="Declanșează un job acum prin backend."
       >
         <div className="flex flex-wrap gap-2">
           {KNOWN_JOBS.map((name) => (

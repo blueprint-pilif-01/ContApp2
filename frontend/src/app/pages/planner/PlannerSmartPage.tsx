@@ -20,7 +20,7 @@ import { PageHeader } from "../../../components/ui/PageHeader";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { ErrorState } from "../../../components/ui/EmptyState";
 import { AIBottomGlow, AIShimmerText, AIThinkingBlob } from "../../../components/ai";
-import { suggestPlanForUser } from "../../../lib/mockAI";
+import { suggestPlanForUser } from "../../../lib/ai";
 import { fmtRelative, cn } from "../../../lib/utils";
 
 type PlannerSmartResponse = {

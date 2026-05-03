@@ -1,8 +1,8 @@
 # Frontend Feature Map
 
-For each module, the page that owns the surface and the endpoints it consumes
-in mock right now. The backend developer can use this as a checklist while
-implementing the matching APIs in `docs/BACKEND_API.md`.
+For each module, the page that owns the surface and the endpoints it consumes.
+The backend developer can use this as a checklist while implementing the
+matching APIs in `docs/BACKEND_API.md`.
 
 ## Public marketing site
 
@@ -94,7 +94,7 @@ Extension keys: `contracts_pro`, `ticketing_pro`, `hr_pro`, `internal_chat`,
   - `GET /chat/conversations/:id/messages`
   - `POST /chat/conversations/:id/messages`
   - `POST /chat/derive-ticket` (renamed from `/chat/derive-task`) — gated on `ai_assistant`
-- AI streaming utilities: `frontend/src/lib/mockAI.ts` (exports `deriveTicket`; legacy alias `deriveTask`)
+- AI utilities: `frontend/src/lib/ai.ts`
 - AI components used: everything under `frontend/src/components/ai/`
 
 ## Calendar

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"backend/internal/dto"
 	"backend/internal/models"
 	"backend/internal/platform/httpx"
 	"net/http"
@@ -16,7 +17,7 @@ func (a *App) listEmployeeCategories(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not list employee categories")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"employee_categories": categories})
+	httpx.JSON(w, http.StatusOK, map[string]any{"employee_categories": dto.EmployeeCategoriesFromModels(categories)})
 }
 
 func (a *App) createEmployeeCategory(w http.ResponseWriter, r *http.Request) {
@@ -24,21 +25,26 @@ func (a *App) createEmployeeCategory(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var category models.EmployeeCategory
-	if err := httpx.DecodeJSON(r, &category); err != nil {
+	var input dto.EmployeeCategoryRequest
+	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if category.Name == "" {
+	if input.Name == "" {
 		httpx.Error(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	category.OrganisationID = claims.OrganisationID
+	category := models.EmployeeCategory{
+		OrganisationID: claims.OrganisationID,
+		Name:           input.Name,
+		Description:    input.Description,
+		Color:          input.Color,
+	}
 	if err := a.Repo.CreateEmployeeCategory(r.Context(), &category); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "could not create employee category")
 		return
 	}
-	httpx.JSON(w, http.StatusCreated, category)
+	httpx.JSON(w, http.StatusCreated, dto.EmployeeCategoryFromModel(category))
 }
 
 func (a *App) updateEmployeeCategory(w http.ResponseWriter, r *http.Request) {
@@ -51,17 +57,22 @@ func (a *App) updateEmployeeCategory(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	var category models.EmployeeCategory
-	if err := httpx.DecodeJSON(r, &category); err != nil {
+	var input dto.EmployeeCategoryRequest
+	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if category.Name == "" {
+	if input.Name == "" {
 		httpx.Error(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	category.ID = id
-	category.OrganisationID = claims.OrganisationID
+	category := models.EmployeeCategory{
+		ID:             id,
+		OrganisationID: claims.OrganisationID,
+		Name:           input.Name,
+		Description:    input.Description,
+		Color:          input.Color,
+	}
 	if err := a.Repo.UpdateEmployeeCategory(r.Context(), &category); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "could not update employee category")
 		return

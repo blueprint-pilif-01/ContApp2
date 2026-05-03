@@ -1,6 +1,7 @@
 package app
 
 import (
+	"backend/internal/dto"
 	"backend/internal/models"
 	"backend/internal/platform/httpx"
 	"fmt"
@@ -38,7 +39,7 @@ func (a *App) listClients(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not list clients")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"clients": clients})
+	httpx.JSON(w, http.StatusOK, map[string]any{"clients": dto.ClientsFromModels(clients)})
 }
 
 func (a *App) createClient(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +59,7 @@ func (a *App) createClient(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not create client")
 		return
 	}
-	httpx.JSON(w, http.StatusCreated, client)
+	httpx.JSON(w, http.StatusCreated, dto.ClientFromModel(client))
 }
 
 func (a *App) getClient(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +77,7 @@ func (a *App) getClient(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusNotFound, "client not found")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, client)
+	httpx.JSON(w, http.StatusOK, dto.ClientFromModel(*client))
 }
 
 func (a *App) updateClient(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +102,7 @@ func (a *App) updateClient(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not update client")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, client)
+	httpx.JSON(w, http.StatusOK, dto.ClientFromModel(client))
 }
 
 func clientFromRequest(input clientRequest) models.Client {
