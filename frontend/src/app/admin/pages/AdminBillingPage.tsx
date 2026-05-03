@@ -119,7 +119,7 @@ export default function AdminBillingPage() {
         )}
       </SectionCard>
 
-      <SectionCard icon={TrendingUp} title="Evenimente Stripe (mock)">
+      <SectionCard icon={TrendingUp} title="Evenimente Stripe">
         {events.isError ? (
           <ErrorState onRetry={() => events.refetch()} />
         ) : (

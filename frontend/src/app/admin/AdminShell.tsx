@@ -1,13 +1,13 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import { LogOut, ShieldCheck } from "lucide-react";
-import { logout, usePrincipal } from "../../hooks/useMe";
+import { logout, useAdminMe } from "../../hooks/useMe";
 import { queryClient } from "../../lib/queryClient";
 import { Avatar } from "../../components/ui/Avatar";
 import { Button } from "../../components/ui/Button";
 import { AdminSidebar } from "./AdminSidebar";
 
 export function AdminShell() {
-  const principal = usePrincipal();
+  const { data: principal } = useAdminMe();
   const navigate = useNavigate();
   const adminName =
     principal?.kind === "admin"
@@ -17,7 +17,7 @@ export function AdminShell() {
 
   const handleSignOut = async () => {
     try {
-      await logout();
+      await logout("admin");
     } finally {
       queryClient.clear();
       navigate("/admin/login");

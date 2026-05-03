@@ -1,6 +1,7 @@
 package app
 
 import (
+	"backend/internal/dto"
 	"backend/internal/models"
 	"backend/internal/platform/auth"
 	"backend/internal/platform/httpx"
@@ -12,35 +13,31 @@ import (
 	"time"
 )
 
-type adminOrganisationUpdateRequest struct {
-	Name    string  `json:"name"`
-	CUI     *string `json:"cui"`
-	Address *string `json:"address"`
-	Status  string  `json:"status"`
-}
-
 func (a *App) updateAdminOrganisation(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r, "id")
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	var input adminOrganisationUpdateRequest
+	var input dto.AdminOrganisationRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if strings.TrimSpace(input.Name) == "" {
+	input.Normalize()
+	if input.Name == "" {
 		httpx.Error(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	status := defaultString(strings.TrimSpace(input.Status), "active")
+	status := dto.AdminOrganisationStatus(input.Status)
+	cui := stringPtrOrNil(anyToString(input.CUI))
+	address := stringPtrOrNil(input.Address)
 	if _, err := a.Repo.Connection().ExecContext(r.Context(), `
 		UPDATE organisations
 		SET name = $2, cui = $3, address = $4, status = $5, updated_at = now()
 		WHERE id = $1
 			AND deleted_at IS NULL
-	`, id, strings.TrimSpace(input.Name), input.CUI, input.Address, status); err != nil {
+	`, id, strings.TrimSpace(input.Name), cui, address, status); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "could not update organisation")
 		return
 	}
@@ -49,7 +46,7 @@ func (a *App) updateAdminOrganisation(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusNotFound, "organisation not found")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, organisation)
+	httpx.JSON(w, http.StatusOK, dto.NewAdminOrganisationResponse(*organisation, input))
 }
 
 func (a *App) deleteAdminOrganisation(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +87,7 @@ func (a *App) adminOrganisationStatusAction(w http.ResponseWriter, r *http.Reque
 		httpx.Error(w, http.StatusNotFound, "organisation not found")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, organisation)
+	httpx.JSON(w, http.StatusOK, dto.NewAdminOrganisationResponse(*organisation, dto.AdminOrganisationRequest{}))
 }
 
 func (a *App) getAdminOrganisationExtensions(w http.ResponseWriter, r *http.Request) {
@@ -374,7 +371,7 @@ func (a *App) createSettingsUser(w http.ResponseWriter, r *http.Request) {
 	if password == "" {
 		password = "password"
 	}
-	memberInput := createMemberRequest{
+	memberInput := dto.CreateMemberRequest{
 		Email:     input.Email,
 		Password:  password,
 		FirstName: firstName,

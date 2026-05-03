@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useEditor, EditorContent, ReactNodeViewRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -70,6 +71,15 @@ export function ContractEditor({ initialContent, onChange, readOnly = false }: C
       onChange?.(editor.getJSON() as Record<string, unknown>);
     },
   });
+
+  useEffect(() => {
+    if (!editor || !initialContent) return;
+    const current = JSON.stringify(editor.getJSON());
+    const next = JSON.stringify(initialContent);
+    if (current !== next) {
+      editor.commands.setContent(initialContent);
+    }
+  }, [editor, initialContent]);
 
   if (!editor) return null;
 

@@ -45,10 +45,10 @@ const testimonials = [
 ];
 
 const companies = [
-  { name: "Contracte", logo: "/mock-logos/commandr.svg" },
-  { name: "Semnături", logo: "/mock-logos/interlock.svg" },
-  { name: "Clienți", logo: "/mock-logos/focalpoint.svg" },
-  { name: "Rapoarte", logo: "/mock-logos/acmecorp.svg" },
+  { name: "Contracte", logo: "/logos/commandr.svg" },
+  { name: "Semnături", logo: "/logos/interlock.svg" },
+  { name: "Clienți", logo: "/logos/focalpoint.svg" },
+  { name: "Rapoarte", logo: "/logos/acmecorp.svg" },
 ];
 
 export function Testimonials(): ReactNode {

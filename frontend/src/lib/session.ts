@@ -40,67 +40,125 @@ export interface AdminPrincipal {
 }
 
 export type Principal = UserPrincipal | AdminPrincipal;
+export type SessionActor = Principal["kind"];
 
 export interface Session {
   accessToken: string;
   principal: Principal;
 }
 
-const STORAGE_KEY = "contapp_session_v1";
+const LEGACY_STORAGE_KEY = "contapp_session_v1";
+const STORAGE_KEYS: Record<SessionActor, string> = {
+  user: "contapp_user_session",
+  admin: "contapp_admin_session",
+};
 
 type Listener = (session: Session | null) => void;
 const listeners = new Set<Listener>();
 
-function readStorage(): Session | null {
+function inferActorFromLocation(): SessionActor {
+  if (
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/admin")
+  ) {
+    return "admin";
+  }
+  return "user";
+}
+
+function readStorage(actor: SessionActor): Session | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEYS[actor]);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Session;
-    if (!parsed?.accessToken || !parsed?.principal?.kind) return null;
+    if (!parsed?.accessToken || parsed?.principal?.kind !== actor) return null;
     return parsed;
   } catch {
     return null;
   }
 }
 
-function writeStorage(s: Session | null): void {
+function readLegacyStorage(actor: SessionActor): Session | null {
   try {
-    if (s) localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-    else localStorage.removeItem(STORAGE_KEY);
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Session;
+    if (!parsed?.accessToken || parsed?.principal?.kind !== actor) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(actor: SessionActor, s: Session | null): void {
+  try {
+    if (s) localStorage.setItem(STORAGE_KEYS[actor], JSON.stringify(s));
+    else localStorage.removeItem(STORAGE_KEYS[actor]);
   } catch {
     // ignore quota / disabled storage
   }
 }
 
-let current: Session | null = readStorage();
+let current: Record<SessionActor, Session | null> = {
+  user: readStorage("user") ?? readLegacyStorage("user"),
+  admin: readStorage("admin") ?? readLegacyStorage("admin"),
+};
 
 function emit() {
-  for (const l of listeners) l(current);
+  for (const l of listeners) l(getSession());
 }
 
-export function getSession(): Session | null {
-  return current;
+export function getSession(actor: SessionActor = inferActorFromLocation()): Session | null {
+  return current[actor];
 }
 
-export function getAccessToken(): string | null {
-  return current?.accessToken ?? null;
+export function getAccessToken(actor: SessionActor = inferActorFromLocation()): string | null {
+  return current[actor]?.accessToken ?? null;
 }
 
-export function setSession(next: Session | null): void {
-  current = next;
-  writeStorage(next);
+export function setSession(
+  next: Session | null,
+  actor: SessionActor | undefined = next?.principal.kind
+): void {
+  const target = actor ?? inferActorFromLocation();
+  current = { ...current, [target]: next };
+  writeStorage(target, next);
+  try {
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  } catch {
+    // ignore disabled storage
+  }
   emit();
 }
 
-export function updateAccessToken(token: string): void {
-  if (!current) return;
-  current = { ...current, accessToken: token };
-  writeStorage(current);
+export function updateAccessToken(
+  token: string,
+  actor: SessionActor = inferActorFromLocation()
+): void {
+  const existing = current[actor];
+  if (!existing) return;
+  current = {
+    ...current,
+    [actor]: { ...existing, accessToken: token },
+  };
+  writeStorage(actor, current[actor]);
   emit();
 }
 
-export function clearSession(): void {
-  setSession(null);
+export function clearSession(actor?: SessionActor): void {
+  if (actor) {
+    setSession(null, actor);
+    return;
+  }
+  current = { user: null, admin: null };
+  writeStorage("user", null);
+  writeStorage("admin", null);
+  try {
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  } catch {
+    // ignore disabled storage
+  }
+  emit();
 }
 
 export function subscribe(listener: Listener): () => void {
@@ -111,8 +169,17 @@ export function subscribe(listener: Listener): () => void {
 /** Cross-tab sync: react to another tab logging in / out. */
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e) => {
-    if (e.key !== STORAGE_KEY) return;
-    current = readStorage();
+    if (
+      e.key !== STORAGE_KEYS.user &&
+      e.key !== STORAGE_KEYS.admin &&
+      e.key !== LEGACY_STORAGE_KEY
+    ) {
+      return;
+    }
+    current = {
+      user: readStorage("user") ?? readLegacyStorage("user"),
+      admin: readStorage("admin") ?? readLegacyStorage("admin"),
+    };
     emit();
   });
 }

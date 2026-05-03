@@ -1207,7 +1207,7 @@ function PermissionsTab() {
 
       <SectionCard
         title="Matrice de permisiuni"
-        description="Bifează ce poate face fiecare rol. Modificările se salvează imediat în mock API."
+        description="Bifează ce poate face fiecare rol. Modificările se salvează prin backend."
       >
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

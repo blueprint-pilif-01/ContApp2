@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Bell, Moon, Sun, CheckCheck } from "lucide-react";
+import { Bell, Menu, Moon, Sun, CheckCheck, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Breadcrumbs, APP_SEGMENTS } from "../../components/ui/Breadcrumbs";
-import { MockHealthPill } from "./MockHealthPill";
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotifications,
 } from "../../hooks/useNotifications";
-import { fmtRelative } from "../../lib/utils";
+import { cn, fmtRelative } from "../../lib/utils";
 
 function useIsMounted() {
   return useSyncExternalStore(
@@ -18,7 +17,15 @@ function useIsMounted() {
   );
 }
 
-export function Topbar() {
+export interface TopbarProps {
+  sidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
+}
+
+export function Topbar({
+  sidebarOpen = false,
+  onToggleSidebar,
+}: TopbarProps = {}) {
   const mounted = useIsMounted();
   const { setTheme, resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -43,11 +50,36 @@ export function Topbar() {
   const unread = inbox.filter((n) => !n.read_at).length;
 
   return (
-    <header className="h-14 bg-frame border-b border-border flex items-center justify-between px-6 gap-3 shrink-0 sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-frame/80">
-      <Breadcrumbs basePath="/app" rootLabel="Dashboard" segments={APP_SEGMENTS} />
+    <header className="h-14 bg-frame border-b border-border flex items-center justify-between px-4 sm:px-6 gap-3 shrink-0 sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-frame/80">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        {onToggleSidebar ? (
+          <button
+            type="button"
+            onClick={() => onToggleSidebar()}
+            className={cn(
+              "lg:hidden shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-xl",
+              "text-foreground hover:bg-foreground/6 active:scale-[0.96] motion-reduce:active:scale-100 transition-[transform,background-color,color]",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/18",
+            )}
+            aria-expanded={sidebarOpen}
+            aria-controls="contapp-sidebar"
+            aria-label={sidebarOpen ? "Închide meniul" : "Deschide meniul"}
+          >
+            {sidebarOpen ? (
+              <X className="h-5 w-5" strokeWidth={1.85} />
+            ) : (
+              <Menu className="h-5 w-5" strokeWidth={1.85} />
+            )}
+          </button>
+        ) : null}
+        <Breadcrumbs
+          basePath="/app"
+          rootLabel="Dashboard"
+          segments={APP_SEGMENTS}
+        />
+      </div>
 
       <div className="flex items-center gap-2">
-        <MockHealthPill />
         {mounted && (
           <button
             type="button"

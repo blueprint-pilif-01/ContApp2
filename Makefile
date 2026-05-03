@@ -9,7 +9,7 @@ GO_ENV := GOCACHE=$$(pwd)/.gocache
 FRONTEND_DEV_HOST ?= 0.0.0.0
 FRONTEND_DEV_PORT ?= 5173
 
-.PHONY: help ensure-env db-up db-down db-reset migrate-up migrate-down migrate-status seed-db backend frontend frontend-terminal frontend-install frontend-build frontend-preview frontend-typecheck frontend-lint check-frontend dev-up dev-up-no-migrate dev-up-inline dev-up-no-migrate-inline test-backend test-frontend test
+.PHONY: help ensure-env db-up db-wait db-down db-reset migrate-up migrate-down migrate-status seed-db backend frontend frontend-terminal frontend-install frontend-build frontend-preview frontend-typecheck frontend-lint check-frontend dev-up dev-up-no-migrate dev-up-inline dev-up-no-migrate-inline test-backend test-frontend test
 
 help:
 	@echo "Available targets:"
@@ -18,6 +18,7 @@ help:
 	@echo "  make dev-up-inline        - Start backend + frontend in this terminal"
 	@echo "  make dev-down             - Stop Postgres container"
 	@echo "  make db-up                - Start Postgres container"
+	@echo "  make db-wait              - Wait until Postgres is healthy"
 	@echo "  make db-down              - Stop Postgres container"
 	@echo "  make db-reset             - Reset DB volume (destructive)"
 	@echo "  make migrate-up           - Apply backend migrations"
@@ -49,6 +50,32 @@ ensure-env:
 
 db-up:
 	docker compose -f "$(COMPOSE_FILE)" up -d postgres
+	$(MAKE) db-wait
+
+db-wait:
+	@set -euo pipefail; \
+	container="$$(docker compose -f "$(COMPOSE_FILE)" ps -q postgres)"; \
+	if [ -z "$$container" ]; then \
+		echo "Postgres container was not created."; \
+		exit 1; \
+	fi; \
+	echo "Waiting for Postgres to become healthy..."; \
+	for i in $$(seq 1 30); do \
+		status="$$(docker inspect -f '{{.State.Health.Status}}' "$$container" 2>/dev/null || true)"; \
+		if [ "$$status" = "healthy" ]; then \
+			echo "Postgres is healthy."; \
+			exit 0; \
+		fi; \
+		if [ "$$status" = "unhealthy" ]; then \
+			echo "Postgres healthcheck is unhealthy."; \
+			docker compose -f "$(COMPOSE_FILE)" logs --tail=80 postgres; \
+			exit 1; \
+		fi; \
+		sleep 1; \
+	done; \
+	echo "Timed out waiting for Postgres healthcheck."; \
+	docker compose -f "$(COMPOSE_FILE)" logs --tail=80 postgres; \
+	exit 1
 
 db-down:
 	docker compose -f "$(COMPOSE_FILE)" down

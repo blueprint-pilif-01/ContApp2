@@ -1,6 +1,7 @@
 package app
 
 import (
+	"backend/internal/dto"
 	"backend/internal/models"
 	"backend/internal/platform/auth"
 	"backend/internal/platform/httpx"
@@ -17,19 +18,7 @@ func (a *App) listMembers(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not list members")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"members": members})
-}
-
-type createMemberRequest struct {
-	Email              string  `json:"email"`
-	Password           string  `json:"password"`
-	FirstName          string  `json:"first_name"`
-	LastName           string  `json:"last_name"`
-	Phone              *string `json:"phone"`
-	EmployeeCategoryID *int64  `json:"employee_category_id"`
-	DisplayName        *string `json:"display_name"`
-	JobTitle           *string `json:"job_title"`
-	Status             string  `json:"status"`
+	httpx.JSON(w, http.StatusOK, map[string]any{"members": dto.WorkspaceMembersFromModels(members)})
 }
 
 func (a *App) createMember(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +26,7 @@ func (a *App) createMember(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var input createMemberRequest
+	var input dto.CreateMemberRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -66,7 +55,7 @@ func (a *App) createMember(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not create member")
 		return
 	}
-	httpx.JSON(w, http.StatusCreated, member)
+	httpx.JSON(w, http.StatusCreated, dto.WorkspaceMemberFromModel(member))
 }
 
 func (a *App) getMember(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +73,7 @@ func (a *App) getMember(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusNotFound, "member not found")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, member)
+	httpx.JSON(w, http.StatusOK, dto.WorkspaceMemberFromModel(*member))
 }
 
 func (a *App) updateMember(w http.ResponseWriter, r *http.Request) {
@@ -97,13 +86,23 @@ func (a *App) updateMember(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	var member models.WorkspaceMember
-	if err := httpx.DecodeJSON(r, &member); err != nil {
+	var input dto.UpdateMemberRequest
+	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	member.MembershipID = id
-	member.OrganisationID = claims.OrganisationID
+	member := models.WorkspaceMember{
+		MembershipID:       id,
+		OrganisationID:     claims.OrganisationID,
+		Email:              input.Email,
+		FirstName:          input.FirstName,
+		LastName:           input.LastName,
+		Phone:              input.Phone,
+		EmployeeCategoryID: input.EmployeeCategoryID,
+		DisplayName:        input.DisplayName,
+		JobTitle:           input.JobTitle,
+		Status:             input.Status,
+	}
 	if err := a.Repo.UpdateWorkspaceMember(r.Context(), &member); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "could not update member")
 		return
@@ -121,7 +120,7 @@ func (a *App) updateMemberStatus(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	var input statusRequest
+	var input dto.StatusRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil || input.Status == "" {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -131,10 +130,6 @@ func (a *App) updateMemberStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusAccepted, map[string]string{"status": "updated"})
-}
-
-type setRolesRequest struct {
-	RoleIDs []int64 `json:"role_ids"`
 }
 
 func (a *App) setMemberRoles(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +142,7 @@ func (a *App) setMemberRoles(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	var input setRolesRequest
+	var input dto.SetRolesRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -169,7 +164,7 @@ func (a *App) listRoles(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not list roles")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"roles": roles})
+	httpx.JSON(w, http.StatusOK, map[string]any{"roles": dto.RolesFromModels(roles)})
 }
 
 func (a *App) listPermissions(w http.ResponseWriter, r *http.Request) {
@@ -178,5 +173,5 @@ func (a *App) listPermissions(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not list permissions")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"permissions": permissions})
+	httpx.JSON(w, http.StatusOK, map[string]any{"permissions": dto.PermissionsFromModels(permissions)})
 }

@@ -331,7 +331,7 @@ Phase 11 - AI Assistant
 [ ] Implement topic digest endpoint.
 [ ] Implement smart planner endpoint.
 [ ] Add AI provider interface.
-[ ] Add mock AI provider for local/dev.
+[ ] Add local/dev AI provider for development.
 [ ] Add tests for AI gating and request logging.
 
 
@@ -373,7 +373,7 @@ Phase 13 - Admin Panel
 Phase 14 - Frontend Integration
 -------------------------------
 
-[ ] Replace mock APIs module by module.
+[ ] Replace placeholder API surfaces module by module.
 [ ] Wire auth to real backend.
 [ ] Wire dashboard to real backend.
 [ ] Wire users/settings to real backend.

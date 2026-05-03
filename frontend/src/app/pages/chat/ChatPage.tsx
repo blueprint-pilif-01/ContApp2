@@ -23,7 +23,7 @@ import { useCollectionCreate, useCollectionList } from "../../../hooks/useCollec
 import { useExtensions } from "../../../hooks/useExtensions";
 import { useToast } from "../../../components/ui/Toast";
 import { api } from "../../../lib/api";
-import { deriveTicket } from "../../../lib/mockAI";
+import { deriveTicket } from "../../../lib/ai";
 import { fmtRelative, cn } from "../../../lib/utils";
 import { MessageTemplates } from "./MessageTemplates";
 
@@ -359,7 +359,7 @@ export default function ChatPage() {
             <div ref={scrollerRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-3 min-h-0">
               {(messages.data ?? []).length === 0 && (
                 <p className="text-xs text-muted-foreground text-center py-10">
-                  Începe conversația. Scrie un mesaj sau folosește @bot pentru a crea un task.
+                  Începe conversația. Scrie un mesaj sau folosește @bot pentru a crea un ticket.
                 </p>
               )}
               {(messages.data ?? []).map((m) => {
@@ -409,7 +409,7 @@ export default function ChatPage() {
 
               {botBusy && (
                 <div className="inline-flex items-center gap-2 text-xs text-muted-foreground rounded-full px-3 py-1.5 bg-foreground/5 w-fit">
-                  <AIThinkingBlob /> Bot drafts task...
+                  <AIThinkingBlob /> Botul pregătește ticketul...
                 </div>
               )}
 
@@ -534,7 +534,7 @@ export default function ChatPage() {
                         }
                       }}
                       dangerouslySetInnerHTML={{ __html: draft || "" }}
-                      data-placeholder="Scrie un mesaj... sau @bot creează task din asta"
+                      data-placeholder="Scrie un mesaj... sau @bot creează ticket din asta"
                       className="min-h-[40px] max-h-[180px] overflow-y-auto outline-none [&:empty:before]:content-[attr(data-placeholder)] [&:empty:before]:text-muted-foreground"
                     />
                   </div>
@@ -569,7 +569,7 @@ export default function ChatPage() {
               <p className="text-[10px] text-muted-foreground mt-2 inline-flex items-center gap-1">
                 <Bot className="w-3 h-3" /> Tip: scrie{" "}
                 <code className="px-1 py-0.5 rounded bg-foreground/5">@bot</code>{" "}
-                pentru a deriva un task.
+                pentru a deriva un ticket.
               </p>
             </footer>
           </>

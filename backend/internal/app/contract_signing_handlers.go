@@ -1,6 +1,7 @@
 package app
 
 import (
+	"backend/internal/dto"
 	"backend/internal/models"
 	"backend/internal/platform/httpx"
 	"database/sql"
@@ -95,7 +96,7 @@ func (a *App) sendContractInvite(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"message":    "Invite sent.",
-		"invite":     contractInviteResponse(*invite),
+		"invite":     dto.ContractInviteFromModel(*invite),
 		"public_url": publicSignURL(r, invite.TokenHash),
 	})
 }

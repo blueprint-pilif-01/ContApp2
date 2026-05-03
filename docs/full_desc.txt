@@ -704,7 +704,7 @@ The frontend is a React app with:
 - legislation
 - settings
 
-The frontend currently uses mock APIs for some newer modules. The backend needs
+The frontend currently has pages for some newer modules. The backend needs
 to implement the API contract progressively.
 
 

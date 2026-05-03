@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowDownRight, Check } from "lucide-react";
 import { motion, useMotionValue, useSpring } from "motion/react";
 import { useRef, type ReactNode, type MouseEvent } from "react";
+import { ConnectedDots } from "./connected-dots";
 
 const ease = [0.23, 1, 0.32, 1] as const;
 
@@ -60,16 +61,11 @@ export function Hero(): ReactNode {
         style={{ x, y }}
         aria-hidden="true"
       >
-        {/* Same gradient as footer CTA */}
-        <div className="absolute inset-0 bg-[linear-gradient(160deg,_#f0fdf4_0%,_#dcfce7_25%,_#bbf7d0_50%,_#86efac_75%,_#a8d946_100%)] dark:bg-[linear-gradient(145deg,_#0f1410_0%,_#152015_30%,_#1a2e1a_55%,_#1e3d1e_80%,_#243d10_100%)]" aria-hidden="true" />
-        {/* Blobs - same opacities as footer, scaled for larger area */}
-        <div className="absolute -top-32 -right-32 w-[32rem] h-[32rem] rounded-full bg-accent/45 dark:bg-accent/30 blur-[80px]" aria-hidden="true" />
-        <div className="absolute top-1/3 -left-32 w-[28rem] h-[28rem] rounded-full bg-accent/40 dark:bg-accent/25 blur-[70px]" aria-hidden="true" />
-        <div className="absolute bottom-20 right-1/4 w-96 h-96 rounded-full bg-accent/35 dark:bg-accent/22 blur-[60px]" aria-hidden="true" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[36rem] h-[36rem] rounded-full bg-accent/30 dark:bg-accent/18 blur-[70px]" aria-hidden="true" />
-        <div className="absolute -bottom-20 -left-20 w-[28rem] h-[28rem] rounded-full bg-accent/32 dark:bg-accent/20 blur-[70px]" aria-hidden="true" />
-        <div className="absolute top-24 right-1/3 w-72 h-72 rounded-full bg-accent/28 dark:bg-accent/16 blur-[50px]" aria-hidden="true" />
-        <div className="absolute bottom-1/3 left-1/4 w-80 h-80 rounded-full bg-accent/25 dark:bg-accent/15 blur-[55px]" aria-hidden="true" />
+        <div className="absolute inset-0 bg-[var(--hero-bg)] dark:bg-[linear-gradient(145deg,_#0f1410_0%,_#152015_30%,_#1a2e1a_55%,_#1e3d1e_80%,_#243d10_100%)]" aria-hidden="true" />
+        <div className="absolute -top-32 -right-32 w-[32rem] h-[32rem] rounded-full bg-accent/45 dark:bg-accent/30 blur-[90px]" aria-hidden="true" />
+        <div className="absolute top-1/3 -left-32 w-[28rem] h-[28rem] rounded-full bg-[#4a9d7a]/50 dark:bg-accent/25 blur-[88px]" aria-hidden="true" />
+        <div className="absolute bottom-20 right-1/4 w-96 h-96 rounded-full bg-[#7cb88f]/55 dark:bg-accent/22 blur-[86px]" aria-hidden="true" />
+        <div className="absolute -bottom-20 -left-20 w-[28rem] h-[28rem] rounded-full bg-accent/35 dark:bg-accent/20 blur-[92px]" aria-hidden="true" />
 
         {/* Grid pattern - same as footer */}
         <div
@@ -81,6 +77,14 @@ export function Hero(): ReactNode {
           }}
           aria-hidden="true"
         />
+
+        {/* Ambient network — full-bleed background layer */}
+        <div
+          className="pointer-events-none absolute inset-0 text-accent/16 dark:text-accent/22 max-[850px]:hidden"
+          aria-hidden="true"
+        >
+          <ConnectedDots variant="ambient" />
+        </div>
       </motion.div>
 
       <div className="flex items-start justify-center px-6 pt-64 max-[850px]:pt-32">
@@ -145,7 +149,7 @@ export function Hero(): ReactNode {
             >
               <span className="absolute right-0 inset-y-0 w-[calc(100%-1.5rem)] max-[850px]:w-full rounded-xl bg-accent" />
               <span className="relative z-10 px-5 py-3 rounded-xl bg-foreground text-background text-sm font-medium whitespace-nowrap max-[850px]:flex-1">Configurează pachetul</span>
-              <span className="relative -left-px z-10 w-10 h-10 rounded-xl flex items-center justify-center text-black">
+              <span className="relative -left-px z-10 w-10 h-10 rounded-xl flex items-center justify-center text-accent-contrast">
                 <ArrowDownRight className="w-4 h-4 transition-transform duration-300 group-hover:-rotate-45" />
               </span>
             </a>
@@ -175,7 +179,7 @@ export function Hero(): ReactNode {
             className="relative rounded-2xl overflow-hidden border border-border shadow-2xl/5 mask-[linear-gradient(to_bottom,black_50%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]"
           >
             <img
-              src="/dashboardmock.png"
+              src="/dashboard-preview.png"
               alt="Dashboard preview"
               className="w-full h-auto invert dark:invert-0 dark:contrast-100 contrast-125"
             />

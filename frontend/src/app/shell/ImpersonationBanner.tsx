@@ -15,7 +15,6 @@ export function useImpersonation() {
 
 export function clearImpersonation() {
   sessionStorage.removeItem(IMPERSONATE_KEY);
-  sessionStorage.removeItem("contapp_mock_auth");
 }
 
 export function ImpersonationBanner() {

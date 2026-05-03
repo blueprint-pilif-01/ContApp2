@@ -1,8 +1,7 @@
 /**
  * Plan / extension / usage summary for the current organisation.
  *
- * Reads `GET /organisations/me/subscription`. The mock responds with a fixed
- * plan plus the current extension toggle state and live usage counts.
+ * Reads `GET /organisations/me/subscription` from the backend.
  *
  * The shape mirrors the backend contract specified in `docs/BACKEND_API.md`.
  * For dev convenience we never fail open: when the request errors we return a

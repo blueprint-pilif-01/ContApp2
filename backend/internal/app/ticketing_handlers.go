@@ -1,18 +1,12 @@
 package app
 
 import (
+	"backend/internal/dto"
 	"backend/internal/models"
 	"backend/internal/platform/httpx"
 	"net/http"
 	"time"
 )
-
-type ticketingTaskRequest struct {
-	models.TicketingTask
-	AssigneeID *int64     `json:"assignee_id"`
-	OwnerID    *int64     `json:"owner_id"`
-	DueDate    *time.Time `json:"due_date"`
-}
 
 func (a *App) listTicketingTasks(w http.ResponseWriter, r *http.Request) {
 	claims, ok := accountClaims(w, r)
@@ -24,11 +18,7 @@ func (a *App) listTicketingTasks(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not list ticketing tasks")
 		return
 	}
-	response := make([]map[string]any, 0, len(tasks))
-	for _, task := range tasks {
-		response = append(response, ticketingTaskResponse(task))
-	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"tasks": response})
+	httpx.JSON(w, http.StatusOK, map[string]any{"tasks": dto.TicketingTasksFromModels(tasks)})
 }
 
 func (a *App) createTicketingTask(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +26,7 @@ func (a *App) createTicketingTask(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var input ticketingTaskRequest
+	var input dto.TicketingTaskRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -49,7 +39,7 @@ func (a *App) createTicketingTask(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "could not create ticketing task")
 		return
 	}
-	httpx.JSON(w, http.StatusCreated, ticketingTaskResponse(task))
+	httpx.JSON(w, http.StatusCreated, dto.TicketingTaskFromModel(task))
 }
 
 func (a *App) getTicketingTask(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +57,7 @@ func (a *App) getTicketingTask(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusNotFound, "ticketing task not found")
 		return
 	}
-	httpx.JSON(w, http.StatusOK, ticketingTaskResponse(*task))
+	httpx.JSON(w, http.StatusOK, dto.TicketingTaskFromModel(*task))
 }
 
 func (a *App) updateTicketingTask(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +70,7 @@ func (a *App) updateTicketingTask(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	var input ticketingTaskRequest
+	var input dto.TicketingTaskRequest
 	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -95,10 +85,10 @@ func (a *App) updateTicketingTask(w http.ResponseWriter, r *http.Request) {
 	}
 	updated, err := a.Repo.GetTicketingTask(r.Context(), claims.OrganisationID, id)
 	if err != nil {
-		httpx.JSON(w, http.StatusOK, ticketingTaskResponse(task))
+		httpx.JSON(w, http.StatusOK, dto.TicketingTaskFromModel(task))
 		return
 	}
-	httpx.JSON(w, http.StatusOK, ticketingTaskResponse(*updated))
+	httpx.JSON(w, http.StatusOK, dto.TicketingTaskFromModel(*updated))
 }
 
 func (a *App) deleteTicketingTask(w http.ResponseWriter, r *http.Request) {
@@ -165,14 +155,24 @@ func (a *App) updateTicketingTaskAction(w http.ResponseWriter, r *http.Request, 
 	}
 	updated, _ := a.Repo.GetTicketingTask(r.Context(), claims.OrganisationID, id)
 	if updated == nil {
-		httpx.JSON(w, http.StatusOK, ticketingTaskResponse(*task))
+		httpx.JSON(w, http.StatusOK, dto.TicketingTaskFromModel(*task))
 		return
 	}
-	httpx.JSON(w, http.StatusOK, ticketingTaskResponse(*updated))
+	httpx.JSON(w, http.StatusOK, dto.TicketingTaskFromModel(*updated))
 }
 
-func ticketingTaskFromRequest(input ticketingTaskRequest) models.TicketingTask {
-	task := input.TicketingTask
+func ticketingTaskFromRequest(input dto.TicketingTaskRequest) models.TicketingTask {
+	task := models.TicketingTask{
+		AssigneeUserID: input.AssigneeUserID,
+		ClientID:       input.ClientID,
+		Title:          input.Title,
+		Description:    input.Description,
+		Status:         input.Status,
+		Priority:       input.Priority,
+		SourceType:     input.SourceType,
+		SourceID:       input.SourceID,
+		DueAt:          input.DueAt,
+	}
 	if input.AssigneeID != nil {
 		task.AssigneeUserID = input.AssigneeID
 	}
@@ -200,50 +200,5 @@ func normalizeTicketingTask(task *models.TicketingTask) {
 		task.Priority = "low"
 	default:
 		task.Priority = "normal"
-	}
-}
-
-func frontendTicketStatus(status string) string {
-	if status == "in_work" {
-		return "in_progress"
-	}
-	return status
-}
-
-func frontendTicketPriority(priority string) string {
-	if priority == "normal" {
-		return "medium"
-	}
-	return priority
-}
-
-func ticketingTaskResponse(task models.TicketingTask) map[string]any {
-	dueAt := task.DueAt
-	if dueAt == nil {
-		fallback := task.CreatedAt.Add(24 * time.Hour)
-		dueAt = &fallback
-	}
-	return map[string]any{
-		"id":               task.ID,
-		"organisation_id":  task.OrganisationID,
-		"created_by_id":    task.CreatedByID,
-		"owner_id":         task.CreatedByID,
-		"assignee_user_id": task.AssigneeUserID,
-		"assignee_id":      task.AssigneeUserID,
-		"client_id":        task.ClientID,
-		"title":            task.Title,
-		"description":      task.Description,
-		"status":           frontendTicketStatus(task.Status),
-		"priority":         frontendTicketPriority(task.Priority),
-		"source_type":      task.SourceType,
-		"source":           task.SourceType,
-		"source_id":        task.SourceID,
-		"due_at":           dueAt,
-		"due_date":         dueAt,
-		"claimed_at":       task.ClaimedAt,
-		"completed_at":     task.CompletedAt,
-		"refused_at":       task.RefusedAt,
-		"created_at":       task.CreatedAt,
-		"updated_at":       task.UpdatedAt,
 	}
 }

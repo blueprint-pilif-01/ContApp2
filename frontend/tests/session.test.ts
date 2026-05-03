@@ -29,6 +29,19 @@ const session: Session = {
   },
 };
 
+const adminSession: Session = {
+  accessToken: "tok.admin",
+  principal: {
+    kind: "admin",
+    id: 2,
+    first_name: "Platform",
+    last_name: "Admin",
+    email: "admin@b.ro",
+    role: "platform_admin",
+    permissions: ["admin:read"],
+  },
+};
+
 describe("session store", () => {
   beforeEach(() => {
     clearSession();
@@ -47,18 +60,30 @@ describe("session store", () => {
 
   it("writes to localStorage so refreshes survive", () => {
     setSession(session);
-    const raw = window.localStorage.getItem("contapp_session_v1");
+    const raw = window.localStorage.getItem("contapp_user_session");
     expect(raw).toBeTruthy();
     const parsed = JSON.parse(raw!);
     expect(parsed.accessToken).toBe("tok.a");
     expect(parsed.principal.kind).toBe("user");
   });
 
+  it("keeps user and admin sessions isolated", () => {
+    setSession(session, "user");
+    setSession(adminSession, "admin");
+    expect(getSession("user")?.accessToken).toBe("tok.a");
+    expect(getSession("admin")?.accessToken).toBe("tok.admin");
+
+    clearSession("admin");
+    expect(getSession("user")?.accessToken).toBe("tok.a");
+    expect(getSession("admin")).toBe(null);
+  });
+
   it("clearSession wipes memory and storage", () => {
     setSession(session);
     clearSession();
     expect(getSession()).toBe(null);
-    expect(window.localStorage.getItem("contapp_session_v1")).toBe(null);
+    expect(window.localStorage.getItem("contapp_user_session")).toBe(null);
+    expect(window.localStorage.getItem("contapp_admin_session")).toBe(null);
   });
 
   it("updateAccessToken rotates only the token", () => {

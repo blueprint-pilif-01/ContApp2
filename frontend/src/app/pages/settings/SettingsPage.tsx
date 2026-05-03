@@ -169,7 +169,7 @@ function ProfileSection() {
         last_name: lastName,
         email,
         phone,
-        password: "mock-keep",
+        password: "",
         status: principal.status,
         signature_id: 0,
       },
@@ -240,7 +240,7 @@ function ProfileSection() {
         </h2>
         <Toggle
           label="Notificări email"
-          description="Primești update-uri pe email pentru taskuri și contracte."
+          description="Primești update-uri pe email pentru tickete și contracte."
           value={emailNotifs}
           onChange={setEmailNotifs}
         />

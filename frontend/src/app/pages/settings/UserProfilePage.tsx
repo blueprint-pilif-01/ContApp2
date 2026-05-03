@@ -130,10 +130,10 @@ export default function UserProfilePage() {
       });
     }
     rows.push({
-      id: "mock-invite",
+      id: "invite-actions",
       title: "Invitație disponibilă",
       description: "Poți retrimite invitația sau reseta parola din acțiunile rapide.",
-      at: "mock",
+      at: "disponibil",
       icon: <Send className="w-4 h-4" />,
       tone: "neutral",
     });
@@ -236,7 +236,7 @@ export default function UserProfilePage() {
               </span>
               <span className="inline-flex items-center gap-2 text-muted-foreground">
                 <CalendarDays className="w-4 h-4" />
-                Creat {user.data.date_added ? fmtDate(user.data.date_added) : "mock"}
+                Creat {user.data.date_added ? fmtDate(user.data.date_added) : "necunoscut"}
               </span>
             </div>
           </div>
@@ -268,7 +268,7 @@ export default function UserProfilePage() {
             ))}
           </div>
         </SectionCard>
-        <SectionCard title="Activitate" description="Istoric operațional mock.">
+        <SectionCard title="Activitate" description="Istoric operațional.">
           <ActivityTimeline items={timeline} />
         </SectionCard>
       </div>

@@ -101,7 +101,7 @@ describe("loginAdmin", () => {
     const principal = await loginAdmin({ email: "admin@x.ro", password: "p" });
     expect(principal.kind).toBe("admin");
     expect(principal.role).toBe("platform_admin");
-    expect(getSession()?.accessToken).toBe("a.tok");
+    expect(getSession("admin")?.accessToken).toBe("a.tok");
 
     const [url] = fetchFn.mock.calls[0]!;
     expect(String(url)).toBe("/auth/admin/login");
@@ -164,7 +164,7 @@ describe("logout", () => {
       },
     });
 
-    await logout();
-    expect(getSession()).toBe(null);
+    await logout("admin");
+    expect(getSession("admin")).toBe(null);
   });
 });

@@ -1,10 +1,10 @@
 /**
  * Extension state hook: reads the active extension map for the current
- * organisation and exposes a toggle for dev mode.
+ * organisation and exposes a backend-backed toggle when available.
  *
  * Endpoints:
  *   GET  /organisations/me/extensions      → { extensions: { ...key: bool } }
- *   PUT  /organisations/me/extensions      → { key, enabled } (mock-only toggle)
+ *   PUT  /organisations/me/extensions      → { key, enabled }
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

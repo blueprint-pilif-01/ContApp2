@@ -4,36 +4,42 @@ import { ArrowLeft, Save } from "lucide-react";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
-import { BackendNote } from "../../../components/ui/BackendNote";
 import { useToast } from "../../../components/ui/Toast";
 import { isApiError } from "../../../lib/api";
 import {
   useCreateTemplate,
   useTemplate,
   useDeleteTemplate,
+  useUpdateTemplate,
 } from "../../../hooks/useTemplates";
-import {
-  useCreateTemplateField,
-  useTemplateField,
-} from "../../../hooks/useTemplateFields";
-import { usePrincipal } from "../../../hooks/useMe";
 import { ContractEditor } from "../../editor/ContractEditor";
 
-/**
- * The backend models contract templates as `{ name, contract_type }` with
- * the rich body stored separately as one or more `template_fields` whose
- * `data` column is a free-form string. The editor's TipTap JSON is
- * serialized into that string. There is no `PUT /template-fields/:id`, so
- * every save creates a **new snapshot**; the latest-created field id is
- * treated as the current content.
- */
+const EMPTY_CONTRACT_DOC: Record<string, unknown> = {
+  type: "doc",
+  content: [{ type: "paragraph" }],
+};
+
+function normalizeContentJson(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object") return value as Record<string, unknown>;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (parsed && typeof parsed === "object") {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      // fall through to an empty editor document
+    }
+  }
+  return EMPTY_CONTRACT_DOC;
+}
+
 export default function TemplateEditorPage() {
   const { id } = useParams<{ id: string }>();
   const numericId = id ? Number.parseInt(id, 10) : NaN;
   const isNew = !id || id === "new";
   const navigate = useNavigate();
   const toast = useToast();
-  const principal = usePrincipal();
 
   const { data: template, refetch } = useTemplate(
     !isNew && Number.isFinite(numericId) ? numericId : undefined
@@ -44,73 +50,39 @@ export default function TemplateEditorPage() {
   const [content, setContent] = useState<Record<string, unknown> | undefined>(
     undefined
   );
-  const [lastFieldId, setLastFieldId] = useState<number | null>(null);
 
   const createTemplate = useCreateTemplate();
-  const deleteTemplate = useDeleteTemplate();
-  const createField = useCreateTemplateField();
-  const { data: currentField } = useTemplateField(
-    lastFieldId ?? undefined
+  const updateTemplate = useUpdateTemplate(
+    Number.isFinite(numericId) ? numericId : 0
   );
+  const deleteTemplate = useDeleteTemplate();
 
   useEffect(() => {
     if (template) {
       setName(template.name);
       setContractType(template.contract_type);
+      setContent(normalizeContentJson(template.content_json));
     }
   }, [template]);
-
-  useEffect(() => {
-    if (!currentField?.data) return;
-    try {
-      const parsed = JSON.parse(currentField.data) as Record<string, unknown>;
-      setContent(parsed);
-    } catch {
-      // older/free-form data — leave it alone
-    }
-  }, [currentField]);
-
-  const saveSnapshot = (templateId: number, json: Record<string, unknown>) => {
-    const now = new Date().toISOString();
-    createField.mutate(
-      {
-        template_id: templateId,
-        data: JSON.stringify(json),
-        date_added: now,
-        date_modified: now,
-      },
-      {
-        onSuccess: (res) => {
-          if (res.id) setLastFieldId(res.id);
-          toast.success("Conținut salvat ca versiune nouă.");
-        },
-        onError: (e) =>
-          toast.error(
-            isApiError(e) ? e.message : "Nu am putut salva conținutul."
-          ),
-      }
-    );
-  };
 
   const handleSave = () => {
     if (!name.trim()) {
       toast.error("Introdu un nume pentru șablon.");
       return;
     }
+    const payload = {
+      name: name.trim(),
+      contract_type: contractType.trim() || "services",
+      content_json: content ?? EMPTY_CONTRACT_DOC,
+    };
+
     if (isNew) {
       createTemplate.mutate(
-        {
-          name,
-          contract_type: contractType,
-          user_id: principal?.kind === "user" ? principal.id : 0,
-          organisation_id:
-            principal?.kind === "user" ? principal.organisation_id ?? 0 : 0,
-        },
+        payload,
         {
           onSuccess: (res) => {
             toast.success("Șablon creat.");
             if (res.id) {
-              if (content) saveSnapshot(res.id, content);
               navigate(`/app/contracts/templates/${res.id}/edit`, {
                 replace: true,
               });
@@ -125,10 +97,17 @@ export default function TemplateEditorPage() {
       return;
     }
 
-    if (Number.isFinite(numericId) && content) {
-      saveSnapshot(numericId, content);
-      refetch();
-    }
+    if (!Number.isFinite(numericId)) return;
+    updateTemplate.mutate(payload, {
+      onSuccess: () => {
+        toast.success("Șablon salvat.");
+        refetch();
+      },
+      onError: (e) =>
+        toast.error(
+          isApiError(e) ? e.message : "Nu am putut salva șablonul."
+        ),
+    });
   };
 
   const handleDelete = () => {
@@ -146,7 +125,7 @@ export default function TemplateEditorPage() {
     });
   };
 
-  const saving = createTemplate.isPending || createField.isPending;
+  const saving = createTemplate.isPending || updateTemplate.isPending;
 
   return (
     <div className="flex flex-col gap-4">
@@ -154,7 +133,7 @@ export default function TemplateEditorPage() {
         title={isNew ? "Șablon nou" : template?.name ?? `Șablon #${numericId}`}
         description={
           isNew
-            ? "Construiește șablonul cu editorul vizual. La salvare se creează șablonul și o primă versiune de conținut."
+            ? "Construiește șablonul cu editorul vizual."
             : `ID #${numericId} · tip ${template?.contract_type ?? "—"}`
         }
         actions={
@@ -165,13 +144,6 @@ export default function TemplateEditorPage() {
           </Link>
         }
       />
-
-      <BackendNote>
-        Conținutul editorului este serializat ca JSON și stocat într-un{" "}
-        <code>template_field.data</code>. Backend-ul nu expune{" "}
-        <code>PUT /template-fields/:id</code>, așa că fiecare salvare creează
-        o versiune nouă; cea mai recentă devine implicit activă.
-      </BackendNote>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-frame p-4">
         <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
@@ -206,7 +178,7 @@ export default function TemplateEditorPage() {
           )}
           <Button size="sm" onClick={handleSave} loading={saving}>
             <Save className="w-4 h-4" />
-            {isNew ? "Creează" : "Salvează versiune"}
+            {isNew ? "Creează" : "Salvează"}
           </Button>
         </div>
       </div>
@@ -215,12 +187,6 @@ export default function TemplateEditorPage() {
         initialContent={content}
         onChange={setContent}
       />
-
-      {!isNew && lastFieldId !== null && (
-        <p className="text-xs text-muted-foreground">
-          Ultima versiune salvată: field #{lastFieldId}
-        </p>
-      )}
     </div>
   );
 }

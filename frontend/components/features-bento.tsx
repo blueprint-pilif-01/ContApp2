@@ -35,7 +35,7 @@ const getCardTransition = (delay = 0): Transition => ({
   delay,
 });
 
-function BrowserWindowMock({
+function ProductWindow({
   children,
   url: _url,
   title,
@@ -117,7 +117,7 @@ function StepByStepCard(): ReactNode {
       </div>
 
       <div className="flex-1 flex justify-center items-stretch min-h-0 transition-transform duration-500 ease-out group-hover:scale-[1.01]">
-        <BrowserWindowMock url="app.contapp.ro" title="Dashboard – ContApp" variant="large">
+        <ProductWindow url="app.contapp.ro" title="Dashboard – ContApp" variant="large">
           <div className="h-full flex flex-col gap-3 min-h-0">
             {/* KPI row */}
             <div className="grid grid-cols-4 gap-2 shrink-0">
@@ -185,7 +185,7 @@ function StepByStepCard(): ReactNode {
               </div>
             </div>
           </div>
-        </BrowserWindowMock>
+        </ProductWindow>
       </div>
     </motion.div>
   );
@@ -213,7 +213,7 @@ function DashboardCard(): ReactNode {
       <div className="relative flex-1 flex items-center justify-center transition-transform duration-500 ease-out group-hover:scale-105">
         <DecorativeCircles />
 
-        <BrowserWindowMock url="app.contapp.ro/contracts/templates/new" title="Șablon nou – ContApp" variant="compact">
+        <ProductWindow url="app.contapp.ro/contracts/templates/new" title="Șablon nou – ContApp" variant="compact">
           <div className="h-full flex flex-col gap-2 min-h-0">
             {/* Top bar: back + name + save */}
             <div className="flex items-center gap-2 shrink-0">
@@ -221,7 +221,7 @@ function DashboardCard(): ReactNode {
               <div className="flex-1 rounded-lg border border-border bg-background px-2 py-1">
                 <span className="text-xs text-muted-foreground">Numele șablonului...</span>
               </div>
-              <span className="text-[10px] bg-accent text-black px-2 py-1 rounded font-medium">Salvează</span>
+              <span className="text-[10px] bg-accent text-accent-contrast px-2 py-1 rounded font-medium">Salvează</span>
             </div>
             {/* Toolbar */}
             <div className="flex flex-wrap gap-0.5 px-2 py-1.5 border border-border rounded-t-lg bg-background shrink-0">
@@ -242,7 +242,7 @@ function DashboardCard(): ReactNode {
               </p>
             </div>
           </div>
-        </BrowserWindowMock>
+        </ProductWindow>
       </div>
     </motion.div>
   );
@@ -268,7 +268,7 @@ function TrustedByCard(): ReactNode {
       </div>
 
       <div className="flex-1 min-h-0 transition-transform duration-500 ease-out group-hover:scale-[1.02]">
-        <BrowserWindowMock url="app.contapp.ro/clients/123" title="SC Tech Web SRL – ContApp" stretch>
+        <ProductWindow url="app.contapp.ro/clients/123" title="SC Tech Web SRL – ContApp" stretch>
           <div className="flex flex-col gap-2.5">
             {/* Client header */}
             <div className="flex items-center gap-2.5">
@@ -320,7 +320,7 @@ function TrustedByCard(): ReactNode {
               ))}
             </div>
           </div>
-        </BrowserWindowMock>
+        </ProductWindow>
       </div>
 
       <div className="flex items-center gap-2 mt-4 text-card-foreground-muted transition-transform duration-500 ease-out group-hover:scale-105">
@@ -351,7 +351,7 @@ function IntegrationsCard(): ReactNode {
       </div>
 
       <div className="flex-1 min-h-0 mt-4 transition-transform duration-500 ease-out group-hover:scale-[1.02]">
-        <BrowserWindowMock url="app.contapp.ro/legislation" title="Legislație – ContApp" stretch>
+        <ProductWindow url="app.contapp.ro/legislation" title="Legislație – ContApp" stretch>
           <div className="flex flex-col gap-2">
             {[
               { cat: "TVA", title: "Modificări TVA microîntreprinderi 2026", date: "18 feb.", urgent: true },
@@ -369,7 +369,7 @@ function IntegrationsCard(): ReactNode {
               </div>
             ))}
           </div>
-        </BrowserWindowMock>
+        </ProductWindow>
       </div>
 
       <p className="mt-4 text-xs text-neutral-700 leading-relaxed transition-transform duration-500 ease-out group-hover:scale-[1.02]">
@@ -439,7 +439,7 @@ function TicketingCard(): ReactNode {
       </div>
 
       <div className="flex-1 min-h-0 transition-transform duration-500 ease-out group-hover:scale-[1.01]">
-        <BrowserWindowMock url="app.contapp.ro/ticketing" title="Ticketing – ContApp" stretch>
+        <ProductWindow url="app.contapp.ro/ticketing" title="Ticketing – ContApp" stretch>
           <div className="grid grid-cols-3 gap-2 h-full min-h-0">
             {columns.map((col) => (
               <div
@@ -477,7 +477,7 @@ function TicketingCard(): ReactNode {
               </div>
             ))}
           </div>
-        </BrowserWindowMock>
+        </ProductWindow>
       </div>
 
       <div className="flex items-center gap-2 text-card-foreground-muted transition-transform duration-500 ease-out group-hover:scale-105">
@@ -511,7 +511,7 @@ function ChatBotCard(): ReactNode {
       </div>
 
       <div className="flex-1 min-h-0 transition-transform duration-500 ease-out group-hover:scale-[1.01]">
-        <BrowserWindowMock url="app.contapp.ro/chat" title="Chat intern – ContApp" stretch>
+        <ProductWindow url="app.contapp.ro/chat" title="Chat intern – ContApp" stretch>
           <div className="flex flex-col gap-2">
             {/* Conversation header */}
             <div className="flex items-center gap-2 pb-2 border-b border-border">
@@ -584,7 +584,7 @@ function ChatBotCard(): ReactNode {
               </span>
             </div>
           </div>
-        </BrowserWindowMock>
+        </ProductWindow>
       </div>
 
       <div className="flex items-center gap-2 text-neutral-700 transition-transform duration-500 ease-out group-hover:scale-105">
@@ -640,7 +640,7 @@ function HrCard(): ReactNode {
       </div>
 
       <div className="flex-1 min-h-0 transition-transform duration-500 ease-out group-hover:scale-[1.02]">
-        <BrowserWindowMock url="app.contapp.ro/hr" title="HR – ContApp" stretch>
+        <ProductWindow url="app.contapp.ro/hr" title="HR – ContApp" stretch>
           <div className="flex flex-col gap-2">
             {/* Stats row */}
             <div className="grid grid-cols-3 gap-1.5">
@@ -700,7 +700,7 @@ function HrCard(): ReactNode {
               </ul>
             </div>
           </div>
-        </BrowserWindowMock>
+        </ProductWindow>
       </div>
 
       <p className="text-xs text-neutral-700 leading-relaxed transition-transform duration-500 ease-out group-hover:scale-[1.02]">
@@ -732,7 +732,7 @@ function AiPlannerCard(): ReactNode {
       </div>
 
       <div className="flex-1 min-h-0 transition-transform duration-500 ease-out group-hover:scale-[1.02]">
-        <BrowserWindowMock url="app.contapp.ro/planner-smart" title="Planner Smart – ContApp" stretch>
+        <ProductWindow url="app.contapp.ro/planner-smart" title="Planner Smart – ContApp" stretch>
           <div className="flex flex-col gap-2">
             {/* AI banner */}
             <div className="flex items-start gap-2 p-2 rounded-lg bg-accent/10 border border-accent/30">
@@ -797,7 +797,7 @@ function AiPlannerCard(): ReactNode {
               </ul>
             </div>
           </div>
-        </BrowserWindowMock>
+        </ProductWindow>
       </div>
 
       <p className="text-xs text-card-foreground-muted leading-relaxed transition-transform duration-500 ease-out group-hover:scale-[1.02]">
