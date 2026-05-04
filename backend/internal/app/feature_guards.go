@@ -16,11 +16,6 @@ func (a *App) requireFeature(featureKey string) func(http.Handler) http.Handler 
 				return
 			}
 
-			if claims.ActorType == "admin" {
-				next.ServeHTTP(w, r)
-				return
-			}
-
 			if claims.ActorType != "account" || claims.OrganisationID == 0 {
 				a.Logger.Warn("feature guard rejected", "reason", "missing_organisation_scope", "actor_type", claims.ActorType, "feature", featureKey, "path", r.URL.Path, "method", r.Method)
 				httpx.Error(w, http.StatusForbidden, "account workspace token required")

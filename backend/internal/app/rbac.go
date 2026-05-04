@@ -14,11 +14,6 @@ func (a *App) requirePermission(permission string) func(http.Handler) http.Handl
 				return
 			}
 
-			if claims.ActorType == "admin" {
-				next.ServeHTTP(w, r)
-				return
-			}
-
 			if claims.ActorType != "account" || claims.OrganisationID == 0 || claims.MembershipID == 0 {
 				a.Logger.Warn("rbac rejected", "reason", "missing_workspace_scope", "actor_type", claims.ActorType, "path", r.URL.Path, "method", r.Method)
 				httpx.Error(w, http.StatusForbidden, "account workspace token required")
