@@ -5,6 +5,7 @@ import (
 	"backend/internal/platform/httpx"
 	"context"
 	"net/http"
+	"strings"
 )
 
 type authContextKey string
@@ -59,11 +60,36 @@ func (a *App) requireAuth(next http.Handler) http.Handler {
 	})
 }
 
+func (a *App) requireAccount(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := claimsFromContext(r.Context())
+		if !ok {
+			httpx.Error(w, http.StatusUnauthorized, "missing authentication")
+			return
+		}
+		if claims.ActorType != "account" || claims.AccountID == 0 || claims.OrganisationID == 0 || claims.MembershipID == 0 {
+			a.Logger.Warn("auth rejected", "reason", "account_workspace_token_required", "actor_type", claims.ActorType, "path", r.URL.Path, "method", r.Method)
+			httpx.Error(w, http.StatusForbidden, "account workspace token required")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (a *App) accessTokenFromRequest(r *http.Request) string {
 	if token := bearerToken(r); token != "" {
 		return token
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return ""
+	}
+	if strings.HasPrefix(r.URL.Path, a.Config.APIBasePath+"/admin/") {
+		if cookie, err := r.Cookie(adminAccessCookieName); err == nil && cookie.Value != "" {
+			return cookie.Value
+		}
+		if cookie, err := r.Cookie(accountAccessCookieName); err == nil && cookie.Value != "" {
+			return cookie.Value
+		}
 		return ""
 	}
 	if cookie, err := r.Cookie(accountAccessCookieName); err == nil && cookie.Value != "" {

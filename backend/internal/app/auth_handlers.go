@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -230,7 +231,8 @@ func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	http.SetCookie(w, a.expiredRefreshCookie())
+	http.SetCookie(w, a.expiredRefreshCookie(a.Config.AccountRefreshCookieName))
+	http.SetCookie(w, a.expiredRefreshCookie(a.Config.AdminRefreshCookieName))
 	http.SetCookie(w, a.expiredAccessCookie(accountAccessCookieName))
 	http.SetCookie(w, a.expiredAccessCookie(adminAccessCookieName))
 	if logoutRecorded {
@@ -317,7 +319,8 @@ func (a *App) switchOrganisation(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) refreshClaimsFromCookie(r *http.Request) (*auth.Claims, error) {
-	cookie, err := r.Cookie(a.Config.RefreshCookieName)
+	cookieName := a.refreshCookieNameForRequest(r)
+	cookie, err := r.Cookie(cookieName)
 	if err != nil || cookie.Value == "" {
 		return nil, errors.New("missing refresh cookie")
 	}
@@ -375,7 +378,7 @@ func (a *App) issueAccountRefreshCookie(w http.ResponseWriter, r *http.Request, 
 		return err
 	}
 
-	http.SetCookie(w, a.refreshCookie(refreshToken, expiresAt))
+	http.SetCookie(w, a.refreshCookie(a.Config.AccountRefreshCookieName, refreshToken, expiresAt))
 	return nil
 }
 
@@ -395,13 +398,27 @@ func (a *App) issueAdminRefreshCookie(w http.ResponseWriter, r *http.Request, ad
 		return err
 	}
 
-	http.SetCookie(w, a.refreshCookie(refreshToken, expiresAt))
+	http.SetCookie(w, a.refreshCookie(a.Config.AdminRefreshCookieName, refreshToken, expiresAt))
 	return nil
 }
 
-func (a *App) refreshCookie(value string, expiresAt time.Time) *http.Cookie {
+func (a *App) refreshCookieNameForRequest(r *http.Request) string {
+	switch r.Header.Get("X-ContApp-Actor") {
+	case "admin":
+		return a.Config.AdminRefreshCookieName
+	case "user", "account":
+		return a.Config.AccountRefreshCookieName
+	default:
+		if strings.HasPrefix(r.URL.Path, a.Config.APIBasePath+"/admin/") {
+			return a.Config.AdminRefreshCookieName
+		}
+		return a.Config.AccountRefreshCookieName
+	}
+}
+
+func (a *App) refreshCookie(name, value string, expiresAt time.Time) *http.Cookie {
 	return &http.Cookie{
-		Name:     a.Config.RefreshCookieName,
+		Name:     name,
 		Value:    value,
 		Path:     a.Config.RefreshCookiePath,
 		Domain:   a.Config.RefreshCookieDomain,
@@ -413,9 +430,9 @@ func (a *App) refreshCookie(value string, expiresAt time.Time) *http.Cookie {
 	}
 }
 
-func (a *App) expiredRefreshCookie() *http.Cookie {
+func (a *App) expiredRefreshCookie(name string) *http.Cookie {
 	return &http.Cookie{
-		Name:     a.Config.RefreshCookieName,
+		Name:     name,
 		Value:    "",
 		Path:     a.Config.RefreshCookiePath,
 		Domain:   a.Config.RefreshCookieDomain,

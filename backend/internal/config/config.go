@@ -10,21 +10,22 @@ import (
 )
 
 type Config struct {
-	AppEnv              string
-	HTTPAddr            string
-	APIBasePath         string
-	DatabaseURL         string
-	MigrationsDir       string
-	JWTSecret           string
-	JWTIssuer           string
-	JWTAudience         string
-	AccessTokenTTL      time.Duration
-	RefreshTokenTTL     time.Duration
-	RefreshCookieName   string
-	RefreshCookiePath   string
-	RefreshCookieDomain string
-	RefreshCookieSecure bool
-	CORSAllowedOrigins  map[string]struct{}
+	AppEnv                   string
+	HTTPAddr                 string
+	APIBasePath              string
+	DatabaseURL              string
+	MigrationsDir            string
+	JWTSecret                string
+	JWTIssuer                string
+	JWTAudience              string
+	AccessTokenTTL           time.Duration
+	RefreshTokenTTL          time.Duration
+	AccountRefreshCookieName string
+	AdminRefreshCookieName   string
+	RefreshCookiePath        string
+	RefreshCookieDomain      string
+	RefreshCookieSecure      bool
+	CORSAllowedOrigins       map[string]struct{}
 }
 
 func Load() (Config, error) {
@@ -40,21 +41,22 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		AppEnv:              getEnv("APP_ENV", "local"),
-		HTTPAddr:            getEnv("APP_HTTP_ADDR", ":8080"),
-		APIBasePath:         getEnv("APP_API_BASE_PATH", "/api/v1"),
-		DatabaseURL:         getEnv("DATABASE_URL", "postgres://app_user:pwd1@localhost:5433/contapp2?sslmode=disable"),
-		MigrationsDir:       getEnv("APP_MIGRATIONS_DIR", "./migrations"),
-		JWTSecret:           getEnv("APP_JWT_SECRET", "dev-insecure-change-me"),
-		JWTIssuer:           getEnv("APP_JWT_ISSUER", "contapp"),
-		JWTAudience:         getEnv("APP_JWT_AUDIENCE", "contapp-api"),
-		AccessTokenTTL:      accessTTL,
-		RefreshTokenTTL:     refreshTTL,
-		RefreshCookieName:   getEnv("APP_REFRESH_COOKIE_NAME", "refresh_token"),
-		RefreshCookiePath:   getEnv("APP_REFRESH_COOKIE_PATH", "/api/v1/auth"),
-		RefreshCookieDomain: getEnv("APP_REFRESH_COOKIE_DOMAIN", ""),
-		RefreshCookieSecure: getBool("APP_REFRESH_COOKIE_SECURE", false),
-		CORSAllowedOrigins:  getCSVSet("APP_CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000", "http://localhost:5173", "http://localhost:5174"}),
+		AppEnv:                   getEnv("APP_ENV", "local"),
+		HTTPAddr:                 getEnv("APP_HTTP_ADDR", ":8080"),
+		APIBasePath:              getEnv("APP_API_BASE_PATH", "/api/v1"),
+		DatabaseURL:              getEnv("DATABASE_URL", "postgres://app_user:pwd1@localhost:5433/contapp2?sslmode=disable"),
+		MigrationsDir:            getEnv("APP_MIGRATIONS_DIR", "./migrations"),
+		JWTSecret:                getEnv("APP_JWT_SECRET", "dev-insecure-change-me"),
+		JWTIssuer:                getEnv("APP_JWT_ISSUER", "contapp"),
+		JWTAudience:              getEnv("APP_JWT_AUDIENCE", "contapp-api"),
+		AccessTokenTTL:           accessTTL,
+		RefreshTokenTTL:          refreshTTL,
+		AccountRefreshCookieName: getEnv("APP_ACCOUNT_REFRESH_COOKIE_NAME", "account_refresh_token"),
+		AdminRefreshCookieName:   getEnv("APP_ADMIN_REFRESH_COOKIE_NAME", "admin_refresh_token"),
+		RefreshCookiePath:        getEnv("APP_REFRESH_COOKIE_PATH", "/api/v1/auth"),
+		RefreshCookieDomain:      getEnv("APP_REFRESH_COOKIE_DOMAIN", ""),
+		RefreshCookieSecure:      getBool("APP_REFRESH_COOKIE_SECURE", false),
+		CORSAllowedOrigins:       getCSVSet("APP_CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000", "http://localhost:5173", "http://localhost:5174"}),
 	}, nil
 }
 
