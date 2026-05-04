@@ -43,9 +43,10 @@ Benefits:
 
 ### Admin Separation
 
-Keeping platform `admins` separate from normal workspace accounts is good.
-Platform admin access should remain explicit and isolated from organisation
-workspace access.
+Platform `admins` are separate from normal workspace accounts. Admin routes are
+explicitly isolated from organisation workspace routes. Remaining hardening work
+is platform-admin scopes, audit coverage, and impersonation rules; track it in
+`docs/platform_admin_todo.md`.
 
 ### RBAC And Feature Guards Exist
 
@@ -280,4 +281,3 @@ The order should be:
 4. API response consistency
 5. backend tests
 6. then more product modules
-

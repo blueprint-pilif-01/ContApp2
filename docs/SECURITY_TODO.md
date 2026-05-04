@@ -45,8 +45,8 @@ Authorization And Data Isolation
 
 [ ] Add automated tests for organisation data isolation on every repository.
 [ ] Add tests for role/permission denial paths.
-[ ] Ensure platform admin actions are audited.
-[ ] Ensure normal accounts cannot access platform admin endpoints.
+[ ] Ensure platform admin actions are audited. See `docs/platform_admin_todo.md`.
+[x] Ensure normal accounts cannot access platform admin endpoints.
 [ ] Add feature entitlement checks for paid extension endpoints.
 [ ] Add usage limit checks where feature limits apply.
 

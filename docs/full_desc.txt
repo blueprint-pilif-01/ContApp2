@@ -634,8 +634,11 @@ General database rules:
 - Keep the database modular so future packages such as projects, multiple
   teams, external chat, custom fields, workflows, and integrations can be added
   without rewriting core tables.
-- Platform admins should be stored outside organisation users. They manage the
-  SaaS platform globally and should not belong to a normal organisation account.
+- Platform admins are stored outside organisation users. They manage the SaaS
+  platform globally and do not belong to a normal organisation account.
+- Remaining platform-admin hardening work, such as scoped admin permissions,
+  audit coverage, and impersonation rules, is tracked in
+  docs/platform_admin_todo.md.
 
 
 10. Backend Architecture Summary

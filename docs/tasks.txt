@@ -96,13 +96,13 @@ Phase 2 - Backend Foundation
 Phase 3 - Auth, Organisations, Users, Roles
 -------------------------------------------
 
-[ ] Implement platform admin login.
-[ ] Implement global account login.
-[ ] Implement organisation membership selection/switching.
-[ ] Implement refresh token rotation.
-[ ] Implement logout/revoke refresh session.
-[ ] Implement GET /auth/me.
-[ ] Implement organisation CRUD for platform admins.
+[x] Implement platform admin login.
+[x] Implement global account login.
+[x] Implement organisation membership selection/switching.
+[x] Implement refresh token rotation.
+[x] Implement logout/revoke refresh session.
+[x] Implement GET /auth/me.
+[x] Implement organisation CRUD for platform admins.
 [ ] Implement organisation settings read/update.
 [ ] Implement organisation membership/user CRUD inside organisation.
 [ ] Implement user invitation placeholder flow.
@@ -111,7 +111,9 @@ Phase 3 - Auth, Organisations, Users, Roles
 [ ] Implement permissions list.
 [ ] Implement role-permission assignment.
 [ ] Implement membership-role assignment.
-[ ] Ensure platform admins are stored separately from normal accounts and memberships.
+[x] Ensure platform admins are stored separately from normal accounts and memberships.
+[ ] Implement platform-admin scopes, audit coverage, and impersonation hardening.
+    See docs/platform_admin_todo.md.
 [ ] Add tests for:
     - login success/failure
     - membership selection
@@ -357,16 +359,16 @@ Phase 12 - Workers And Background Jobs
 Phase 13 - Admin Panel
 ----------------------
 
-[ ] Implement platform admin dashboard endpoints.
-[ ] Implement organisations admin pages against real API.
-[ ] Implement users admin pages against real API.
-[ ] Implement feature/extension activation UI.
-[ ] Implement billing/subscription admin UI.
-[ ] Implement files admin UI.
-[ ] Implement contracts admin overview.
-[ ] Implement notification admin UI.
-[ ] Implement jobs admin UI.
-[ ] Implement audit/event log UI.
+[x] Implement platform admin dashboard endpoints.
+[x] Implement organisations admin pages against real API.
+[x] Implement users admin pages against real API.
+[x] Implement feature/extension activation UI.
+[x] Implement billing/subscription admin UI.
+[x] Implement files admin UI.
+[x] Implement contracts admin overview.
+[x] Implement notification admin UI.
+[x] Implement jobs admin UI.
+[x] Implement audit/event log UI.
 [ ] Add platform admin access tests.
 
 

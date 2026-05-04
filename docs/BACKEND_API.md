@@ -100,14 +100,17 @@ Rules:
 - The access token should include `account_id`, `organisation_id`, and
   `membership_id` after an organisation context is selected.
 - Platform admin endpoints may access cross-organisation data only through
-  explicit admin permissions.
+  explicit admin permissions. Route-level platform scopes are tracked in
+  `docs/platform_admin_todo.md`.
 - Public signing endpoints are unauthenticated and use high-entropy public
   tokens stored only as hashes.
 
 Decision:
 
 - Use global `accounts` plus `organisation_memberships`.
-- Keep `admins` separate from normal accounts.
+- Keep `admins` separate from normal accounts. This boundary is implemented;
+  remaining scope/audit/impersonation hardening is tracked in
+  `docs/platform_admin_todo.md`.
 - Product-facing "users" inside an organisation are membership records.
 - Roles attach to memberships, not directly to global accounts.
 
@@ -231,22 +234,33 @@ Recommended login response:
 
 ### Platform Admin
 
-Platform admin endpoints require admin actor permissions.
+Platform admin endpoints require admin actor permissions. Route-level platform
+admin scopes are a hardening TODO tracked in `docs/platform_admin_todo.md`.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/admin/overview` | platform dashboard |
+| GET | `/admin/dashboard` | platform dashboard |
 | GET | `/admin/organisations` | list/search organisations |
 | POST | `/admin/organisations` | create organisation |
 | GET | `/admin/organisations/{id}` | read organisation |
 | PUT | `/admin/organisations/{id}` | update organisation |
 | DELETE | `/admin/organisations/{id}` | soft delete organisation |
 | GET | `/admin/users` | cross-organisation user search |
-| GET | `/admin/features` | list feature definitions |
-| PUT | `/admin/organisations/{id}/features` | manually activate/deactivate features |
-| GET | `/admin/events` | audit event search |
+| GET | `/admin/organisations/{id}/extensions` | read enabled extensions |
+| PUT | `/admin/organisations/{id}/extensions` | manually activate/deactivate features |
+| GET | `/admin/audit` | audit event search |
 | GET | `/admin/jobs` | job run history |
-| POST | `/admin/jobs/{name}/run` | manually trigger job |
+| POST | `/admin/jobs/{name}/trigger` | manually trigger job |
+| GET | `/admin/files` | storage overview |
+| GET | `/admin/billing` | billing overview |
+| GET | `/admin/billing/events` | Stripe/billing events |
+| GET | `/admin/contracts` | contract overview |
+| GET | `/admin/notifications` | platform notifications |
+| POST | `/admin/notifications/broadcast` | broadcast platform notification |
+| GET | `/admin/subscription-plans` | list subscription plans |
+| POST | `/admin/subscription-plans` | create subscription plan |
+| PUT | `/admin/subscription-plans/{id}` | update subscription plan |
+| DELETE | `/admin/subscription-plans/{id}` | deactivate subscription plan |
 
 
 ### Organisation, Users, Roles
@@ -667,8 +681,8 @@ AI logging rules:
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/events` | list organisation audit events |
-| GET | `/jobs` | list visible job runs, admin only or restricted |
-| POST | `/admin/jobs/{name}/run` | manually trigger job, platform admin only |
+| GET | `/jobs` | list visible organisation job runs, restricted |
+| POST | `/admin/jobs/{name}/trigger` | manually trigger job, platform admin only |
 
 Audit events should be append-only.
 
