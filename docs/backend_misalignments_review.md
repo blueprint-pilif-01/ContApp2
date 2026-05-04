@@ -57,22 +57,22 @@ Recommended direction:
 
 ### Admin and user refresh sessions still conflict
 
-Access cookies are split into `account_access_token` and `admin_access_token`,
-but refresh cookies still share one configured cookie name/path. Admin login can
-still overwrite a workspace user's refresh session in the same browser profile,
-and the reverse can also happen.
+Account/admin access cookies and refresh cookies are now split. Admin login and
+workspace login can coexist in the same browser profile without sharing the same
+refresh cookie.
 
 Relevant files:
 
 - `backend/internal/app/auth_handlers.go`
 - `backend/.env.example`
 - `docs/possible_issues.txt`
+- `docs/platform_admin_todo.md`
 
-Recommended direction:
+Remaining direction:
 
-- Use separate refresh cookie names and paths for account and admin sessions.
-- Make refresh/logout actor-aware.
-- Keep frontend user/admin session storage separate as well.
+- Add scoped platform-admin permissions for `/admin/*`.
+- Add audit coverage for platform-admin write actions and impersonation.
+- Keep customer-private data behind explicit elevated support scopes.
 
 ## Frontend And API Drift
 
