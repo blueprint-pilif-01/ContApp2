@@ -24,7 +24,7 @@ import { Badge } from "../../../components/ui/Badge";
 import { Drawer } from "../../../components/ui/Drawer";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { EmptyArt } from "../../../components/ui/EmptyArt";
-import { ActivityTimeline } from "../../../components/ui/ActivityTimeline";
+import { ActivityTimeline, type ActivityItem } from "../../../components/ui/ActivityTimeline";
 import {
   useCollectionAction,
   useCollectionCreate,
@@ -32,7 +32,6 @@ import {
 } from "../../../hooks/useCollection";
 import { useTeamUsers, teamUserDisplayName } from "../../../hooks/useTeamUsers";
 import { usePrincipal } from "../../../hooks/useMe";
-import { useExtensions } from "../../../hooks/useExtensions";
 import { api } from "../../../lib/api";
 import {
   ticketPriorityBar,
@@ -41,13 +40,12 @@ import {
   ticketStatusLabel,
   type TicketPriorityInput,
 } from "../../../lib/ticketing";
-import type { ClientDTO } from "../../../lib/types";
 import { fmtDate, fmtRelative } from "../../../lib/utils";
 
 type TicketStatus = "todo" | "in_progress" | "blocked" | "done" | "archived";
 type BoardStatus = Exclude<TicketStatus, "archived">;
 
-type Ticket = {
+export type Ticket = {
   id: number;
   title: string;
   description: string | null;
@@ -64,19 +62,20 @@ type Ticket = {
   claimed_at?: string | null;
   completed_at?: string | null;
   refused_at?: string | null;
+  archived_by_name?: string | null;
+  archived_at?: string | null;
   created_at?: string;
   updated_at: string;
   date_added?: string;
   date_modified?: string;
 };
 
-type TicketPatch = Partial<{
+export type TicketPatch = Partial<{
   title: string;
   description: string | null;
   status: TicketStatus;
   priority: TicketPriorityInput | string;
   assignee_id: number | null;
-  client_id: number | null;
   source_type: string | null;
   source_id: number | null;
   due_date: string | null;
@@ -91,7 +90,13 @@ type TicketHistoryEvent = {
   actor: string;
 };
 
+type TicketTimelineItem = ActivityItem & {
+  occurredAt: string;
+  order: number;
+};
+
 const TICKET_HISTORY_KEY = "contapp_ticket_history_v1";
+const TICKET_ARCHIVE_KEY = "contapp_ticket_archive_v1";
 
 const columns: Array<{ key: BoardStatus; label: string; tone: string }> = [
   { key: "todo", label: "De făcut", tone: "from-foreground/8 to-transparent" },
@@ -152,6 +157,73 @@ function historyForTicket(ticketId: number): TicketHistoryEvent[] {
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 }
 
+type TicketArchiveMeta = {
+  actor: string;
+  at: string;
+};
+
+function readTicketArchives(): Record<string, TicketArchiveMeta> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(TICKET_ARCHIVE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return parsed as Record<string, TicketArchiveMeta>;
+  } catch {
+    return {};
+  }
+}
+
+function writeTicketArchives(records: Record<string, TicketArchiveMeta>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(TICKET_ARCHIVE_KEY, JSON.stringify(records));
+  } catch {
+    // Backend archive metadata wins when it becomes available.
+  }
+}
+
+function saveTicketArchive(ticketId: number, actor: string, at = new Date().toISOString()) {
+  writeTicketArchives({
+    ...readTicketArchives(),
+    [ticketId]: { actor, at },
+  });
+}
+
+function clearTicketArchive(ticketId: number) {
+  const records = readTicketArchives();
+  delete records[ticketId];
+  writeTicketArchives(records);
+}
+
+function archiveMetaForTicket(ticket: Ticket): TicketArchiveMeta | null {
+  if (ticket.archived_by_name || ticket.archived_at) {
+    return {
+      actor: ticket.archived_by_name || "Sistem",
+      at: ticket.archived_at || ticket.updated_at,
+    };
+  }
+  return readTicketArchives()[String(ticket.id)] ?? null;
+}
+
+function validTimestamp(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? null : value;
+}
+
+function sortTimelineItems(items: TicketTimelineItem[]): ActivityItem[] {
+  return [...items]
+    .sort((a, b) => {
+      const diff = new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime();
+      return diff || b.order - a.order;
+    })
+    .map(({ occurredAt, order: _order, ...item }) => ({
+      ...item,
+      at: fmtRelative(occurredAt),
+    }));
+}
+
 function dateInputValue(value: string | null | undefined): string {
   if (!value) return "";
   const date = new Date(value);
@@ -168,12 +240,7 @@ function defaultDueDate(): string {
   return new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
 }
 
-function clientName(client: ClientDTO): string {
-  if (client.client_type === "company") return client.company_name || client.email || `Client #${client.id}`;
-  return [client.first_name, client.last_name].filter(Boolean).join(" ").trim() || client.email || `Client #${client.id}`;
-}
-
-function ticketUpdatePayload(ticket: Ticket, patch: TicketPatch) {
+export function ticketUpdatePayload(ticket: Ticket, patch: TicketPatch) {
   return {
     title: patch.title ?? ticket.title,
     description: patch.description ?? ticket.description ?? "",
@@ -181,7 +248,6 @@ function ticketUpdatePayload(ticket: Ticket, patch: TicketPatch) {
     priority: patch.priority ?? ticket.priority,
     assignee_id:
       patch.assignee_id !== undefined ? patch.assignee_id : ticket.assignee_id,
-    client_id: patch.client_id !== undefined ? patch.client_id : ticket.client_id ?? null,
     source_type: patch.source_type ?? ticketSourceType(ticket),
     source_id: patch.source_id !== undefined ? patch.source_id : ticket.source_id ?? null,
     due_date:
@@ -196,14 +262,7 @@ export default function TicketingPage() {
     principal?.kind === "user"
       ? `${principal.first_name} ${principal.last_name}`.trim() || principal.email
       : "Sistem";
-  const ext = useExtensions();
   const teamUsers = useTeamUsers();
-  const clients = useCollectionList<ClientDTO>(
-    "ticketing-clients",
-    "/clients",
-    "",
-    ext.isReady && ext.canUse("contracts_pro")
-  );
 
   const memberOf = (id: number | null): string => {
     if (!id) return "Neasignat";
@@ -224,7 +283,6 @@ export default function TicketingPage() {
   const [newDescription, setNewDescription] = useState("");
   const [newPriority, setNewPriority] = useState<TicketPriorityInput>("normal");
   const [newAssignee, setNewAssignee] = useState("");
-  const [newClient, setNewClient] = useState("");
   const [newDueDate, setNewDueDate] = useState(defaultDueDate());
 
   const listQuery = statusFilter !== "all" ? `status=${statusFilter}` : "";
@@ -244,6 +302,14 @@ export default function TicketingPage() {
       historyDescription: string;
     }) => api.put<Ticket>(`/ticketing/tickets/${ticket.id}`, ticketUpdatePayload(ticket, patch)),
     onSuccess: (updated, variables) => {
+      if (variables.patch.status === "archived") {
+        saveTicketArchive(updated.id, actorName, updated.archived_at ?? undefined);
+      } else if (
+        variables.ticket.status === "archived" &&
+        variables.patch.status
+      ) {
+        clearTicketArchive(updated.id);
+      }
       appendTicketHistory(
         updated,
         variables.historyTitle,
@@ -261,13 +327,6 @@ export default function TicketingPage() {
     ...(teamUsers.data ?? []).map((user) => ({
       value: String(user.id),
       label: teamUserDisplayName(user),
-    })),
-  ];
-  const clientOptions = [
-    { value: "", label: "Fără client" },
-    ...(clients.data ?? []).map((client) => ({
-      value: String(client.id),
-      label: clientName(client),
     })),
   ];
 
@@ -304,6 +363,60 @@ export default function TicketingPage() {
     }
     return map;
   }, [filtered]);
+
+  const activeTimelineItems = useMemo(() => {
+    if (!active) return [];
+    const items: TicketTimelineItem[] = [];
+    const add = (
+      timestamp: string | null | undefined,
+      item: Omit<TicketTimelineItem, "occurredAt" | "order" | "at">
+    ) => {
+      const occurredAt = validTimestamp(timestamp);
+      if (!occurredAt) return;
+      items.push({ ...item, occurredAt, at: "", order: items.length });
+    };
+
+    add(active.created_at ?? active.date_added ?? active.updated_at, {
+      id: "created",
+      title: "Ticket creat",
+      description: `Sursă: ${active.source ?? ticketSourceType(active)}`,
+      icon: <KanbanSquare className="w-4 h-4" />,
+      tone: "info",
+    });
+    add(active.claimed_at, {
+      id: "claimed",
+      title: "Ticket preluat",
+      description: `Responsabil: ${memberOf(active.assignee_id)}`,
+      icon: <Check className="w-4 h-4" />,
+      tone: "success",
+    });
+    add(active.refused_at, {
+      id: "refused",
+      title: "Ticket refuzat",
+      description: "Status schimbat în blocat.",
+      icon: <X className="w-4 h-4" />,
+      tone: "danger",
+    });
+    add(active.completed_at, {
+      id: "completed",
+      title: "Ticket finalizat",
+      description: "Status schimbat în gata.",
+      icon: <Check className="w-4 h-4" />,
+      tone: "success",
+    });
+
+    for (const event of historyForTicket(active.id)) {
+      add(event.at, {
+        id: event.id,
+        title: event.title,
+        description: `${event.description} · ${event.actor}`,
+        icon: <History className="w-4 h-4" />,
+        tone: event.title.toLowerCase().includes("arhiv") ? "warning" : "neutral",
+      });
+    }
+
+    return sortTimelineItems(items);
+  }, [active, historyVersion, teamUsers.data]);
 
   const onDrop = (status: BoardStatus, e: React.DragEvent) => {
     e.preventDefault();
@@ -511,7 +624,6 @@ export default function TicketingPage() {
                     priority: newPriority,
                     owner_id: myId,
                     assignee_id: newAssignee ? Number(newAssignee) : null,
-                    client_id: newClient ? Number(newClient) : null,
                     source_type: "manual",
                     source_id: null,
                     due_date: dateInputToISO(newDueDate),
@@ -532,7 +644,6 @@ export default function TicketingPage() {
                 setNewDescription("");
                 setNewPriority("normal");
                 setNewAssignee("");
-                setNewClient("");
                 setNewDueDate(defaultDueDate());
                 setCreating(false);
               }}
@@ -563,14 +674,6 @@ export default function TicketingPage() {
             onChange={(e) => setNewDueDate(e.target.value)}
           />
         </div>
-        {ext.canUse("contracts_pro") && (
-          <Select
-            label="Client"
-            value={newClient}
-            onChange={(e) => setNewClient(e.target.value)}
-            options={clientOptions}
-          />
-        )}
         <SegmentedControl
           value={newPriority}
           onChange={setNewPriority}
@@ -783,23 +886,6 @@ export default function TicketingPage() {
                     });
                   }}
                 />
-                {ext.canUse("contracts_pro") && (
-                  <Select
-                    label="Client"
-                    value={active.client_id ? String(active.client_id) : ""}
-                    onChange={(e) => {
-                      const next = e.target.value ? Number(e.target.value) : null;
-                      const selected = clients.data?.find((client) => client.id === next);
-                      updateTicket.mutate({
-                        ticket: active,
-                        patch: { client_id: next },
-                        historyTitle: "Client schimbat",
-                        historyDescription: selected ? `Legat de ${clientName(selected)}.` : "Legătura cu clientul a fost eliminată.",
-                      });
-                    }}
-                    options={clientOptions}
-                  />
-                )}
               </div>
             </div>
             <div className="rounded-2xl border border-border bg-background p-4">
@@ -811,71 +897,7 @@ export default function TicketingPage() {
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Istoric ticket
               </h3>
-              <ActivityTimeline
-                items={[
-                  {
-                    id: "created",
-                    title: "Ticket creat",
-                    description: `Sursă: ${active.source}`,
-                    at: fmtRelative(active.created_at ?? active.date_added ?? active.updated_at),
-                    icon: <KanbanSquare className="w-4 h-4" />,
-                    tone: "info",
-                  },
-                  ...(active.claimed_at
-                    ? [{
-                        id: "claimed",
-                        title: "Ticket preluat",
-                        description: `Responsabil: ${memberOf(active.assignee_id)}`,
-                        at: fmtRelative(active.claimed_at),
-                        icon: <Check className="w-4 h-4" />,
-                        tone: "success" as const,
-                      }]
-                    : []),
-                  ...(active.refused_at
-                    ? [{
-                        id: "refused",
-                        title: "Ticket refuzat",
-                        description: "Status schimbat în blocat.",
-                        at: fmtRelative(active.refused_at),
-                        icon: <X className="w-4 h-4" />,
-                        tone: "danger" as const,
-                      }]
-                    : []),
-                  ...(active.completed_at
-                    ? [{
-                        id: "completed",
-                        title: "Ticket finalizat",
-                        description: "Status schimbat în gata.",
-                        at: fmtRelative(active.completed_at),
-                        icon: <Check className="w-4 h-4" />,
-                        tone: "success" as const,
-                      }]
-                    : []),
-                  ...historyForTicket(active.id).map((event) => ({
-                    id: event.id,
-                    title: event.title,
-                    description: `${event.description} · ${event.actor}`,
-                    at: fmtRelative(event.at),
-                    icon: <History className="w-4 h-4" />,
-                    tone: event.title.toLowerCase().includes("arhiv")
-                      ? "warning" as const
-                      : "neutral" as const,
-                  })),
-                  {
-                    id: "status",
-                    title: `Status curent: ${ticketStatusLabel(active.status)}`,
-                    description: `Prioritate ${ticketPriorityLabel(active.priority)} · asignat ${memberOf(active.assignee_id)}`,
-                    at: fmtDate(active.due_date),
-                    icon: <Clock className="w-4 h-4" />,
-                    tone:
-                      active.status === "done"
-                        ? "success"
-                        : active.status === "blocked"
-                          ? "danger"
-                          : "neutral",
-                  },
-                ]}
-              />
+              <ActivityTimeline items={activeTimelineItems} />
             </div>
             <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-300 inline-flex items-start gap-2">
               <AlertCircle className="w-4 h-4 mt-0.5" />
@@ -899,7 +921,15 @@ function ArchivedTicketsPanel({
   onPick: (t: Ticket) => void;
   historyVersion: number;
 }) {
-  void historyVersion;
+  const archiveRows = useMemo(
+    () =>
+      tickets.map((ticket) => ({
+        ticket,
+        history: historyForTicket(ticket.id),
+        archiveMeta: archiveMetaForTicket(ticket),
+      })),
+    [tickets, historyVersion]
+  );
 
   return (
     <div className="rounded-2xl border border-border bg-frame overflow-hidden">
@@ -922,8 +952,7 @@ function ArchivedTicketsPanel({
         />
       ) : (
         <ul className="divide-y divide-border">
-          {tickets.map((ticket) => {
-            const history = historyForTicket(ticket.id);
+          {archiveRows.map(({ ticket, history, archiveMeta }) => {
             const latest = history[0];
             return (
               <li key={ticket.id} className="p-4 hover:bg-foreground/3 transition-colors">
@@ -950,7 +979,9 @@ function ArchivedTicketsPanel({
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5" />
-                      Actualizat {fmtRelative(ticket.updated_at)}
+                      {archiveMeta
+                        ? `Arhivat de ${archiveMeta.actor} · ${fmtRelative(archiveMeta.at)}`
+                        : `Actualizat ${fmtRelative(ticket.updated_at)}`}
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <History className="w-3.5 h-3.5" />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   Check,
   Edit2,
@@ -39,6 +39,11 @@ import {
   useCollectionList,
   useCollectionUpdate,
 } from "../../../hooks/useCollection";
+import {
+  PERMISSION_CATALOG,
+  PERMISSION_GROUPS,
+  type PermissionDefinition,
+} from "../../../lib/permissions";
 import { cn } from "../../../lib/utils";
 
 type AppUser = {
@@ -64,18 +69,17 @@ type EffectivePermissions = {
   permissions: string[];
 };
 
-const PERMISSIONS = [
-  { key: "contracts:read", label: "Contracte – citire" },
-  { key: "contracts:write", label: "Contracte – scriere" },
-  { key: "ticketing:manage", label: "Ticketing – management" },
-  { key: "chat:read", label: "Chat – citire" },
-  { key: "hr:manage", label: "HR – management" },
-  { key: "legislation:read", label: "Legislație – citire" },
-  { key: "settings:manage", label: "Setări – management" },
-];
-
 const DEFAULT_ROLE_ID = 2;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isOwnerRole(role: AppRole | null | undefined): boolean {
+  const text = `${role?.name ?? ""} ${role?.description ?? ""}`.toLowerCase();
+  return /\bowner\b/.test(text) || text.includes("proprietar");
+}
+
+function permissionsForGroup(groupID: string): PermissionDefinition[] {
+  return PERMISSION_CATALOG.filter((permission) => permission.group === groupID);
+}
 
 export default function UsersRolesPage() {
   const [active, setActive] = useState("users");
@@ -405,7 +409,7 @@ function UsersTab() {
   const editEmailError =
     editEmail.trim() && !EMAIL_RE.test(editEmail.trim()) ? "Email invalid." : "";
   const canCreate = !createNameError && !createEmailError;
-  const canSaveEdit = !editNameError && !editEmailError;
+  const canSaveEditBase = !editNameError && !editEmailError;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -427,6 +431,26 @@ function UsersTab() {
     roles.data?.find((r) => r.id === rid)?.name ?? `Rol #${rid}`;
 
   const roleNamesOf = (ids: number[]) => ids.map(roleNameOf);
+  const ownerRoleIds = useMemo(
+    () => new Set((roles.data ?? []).filter(isOwnerRole).map((role) => role.id)),
+    [roles.data]
+  );
+  const userHasOwnerRole = (user: AppUser, ids = roleIdsOf(user)) =>
+    ids.some((id) => ownerRoleIds.has(id));
+  const activeOwnerCount = useMemo(
+    () =>
+      (users.data ?? []).filter(
+        (user) => user.status === "active" && userHasOwnerRole(user)
+      ).length,
+    [users.data, ownerRoleIds]
+  );
+  const isLastActiveOwner = (user: AppUser) =>
+    user.status === "active" && userHasOwnerRole(user) && activeOwnerCount <= 1;
+  const editingIsLastActiveOwner = editing ? isLastActiveOwner(editing) : false;
+  const editKeepsOwnerRole = editRoleIds.some((id) => ownerRoleIds.has(id));
+  const lastOwnerEditBlocked =
+    editingIsLastActiveOwner && (!editKeepsOwnerRole || editStatus !== "active");
+  const canSaveEdit = canSaveEditBase && !lastOwnerEditBlocked;
 
   const toggleRoleId = (id: number, current: number[], setNext: (ids: number[]) => void) => {
     const next = current.includes(id)
@@ -452,6 +476,10 @@ function UsersTab() {
 
   const saveEdit = () => {
     if (!editing || !canSaveEdit) return;
+    if (lastOwnerEditBlocked) {
+      toast.error("Ultimul Owner activ nu poate fi demis sau dezactivat din UI.");
+      return;
+    }
     const savedRoleIds = editRoleIds.length > 0 ? editRoleIds : [DEFAULT_ROLE_ID];
     update.mutate(
       {
@@ -502,6 +530,11 @@ function UsersTab() {
 
   const confirmDelete = () => {
     if (!deleteTarget) return;
+    if (isLastActiveOwner(deleteTarget)) {
+      toast.error("Ultimul Owner activ nu poate fi șters din UI.");
+      setDeleteTarget(null);
+      return;
+    }
     remove.mutate(deleteTarget.id, {
       onSuccess: () => {
         toast.success("Utilizator șters.");
@@ -513,6 +546,11 @@ function UsersTab() {
 
   const confirmStatusChange = () => {
     if (!statusTarget) return;
+    if (isLastActiveOwner(statusTarget) && statusTarget.status === "active") {
+      toast.error("Ultimul Owner activ nu poate fi dezactivat din UI.");
+      setStatusTarget(null);
+      return;
+    }
     const nextStatus = statusTarget.status === "active" ? "inactive" : "active";
     update.mutate(
       { id: statusTarget.id, payload: { status: nextStatus } },
@@ -585,6 +623,7 @@ function UsersTab() {
               {filtered.map((u) => {
                 const userRoleIds = roleIdsOf(u);
                 const userRoleNames = roleNamesOf(userRoleIds);
+                const lastOwner = isLastActiveOwner(u);
                 return (
                   <tr
                     key={u.id}
@@ -617,7 +656,10 @@ function UsersTab() {
                     <td className="px-4 py-3">
                       <button
                         type="button"
+                        disabled={lastOwner}
                         onClick={() => setStatusTarget(u)}
+                        className="disabled:cursor-not-allowed disabled:opacity-70"
+                        title={lastOwner ? "Ultimul Owner activ este protejat." : "Schimbă status"}
                       >
                         <Badge variant={u.status === "active" ? "success" : "neutral"}>
                           {u.status === "active" ? "Activ" : "Inactiv"}
@@ -638,7 +680,14 @@ function UsersTab() {
                         <Button size="xs" variant="ghost" onClick={() => handleResetPassword(u)}>
                           <RotateCcw className="w-3.5 h-3.5" />
                         </Button>
-                        <Button size="xs" variant="ghost" className="text-red-500" onClick={() => setDeleteTarget(u)}>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          className="text-red-500"
+                          onClick={() => setDeleteTarget(u)}
+                          disabled={lastOwner}
+                          title={lastOwner ? "Ultimul Owner activ este protejat." : "Șterge utilizator"}
+                        >
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
@@ -807,13 +856,23 @@ function UsersTab() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {(roles.data ?? []).map((role) => {
                   const selected = editRoleIds.includes(role.id);
+                  const lockedOwnerRole =
+                    editingIsLastActiveOwner && selected && ownerRoleIds.has(role.id);
                   return (
                     <button
                       key={role.id}
                       type="button"
-                      onClick={() => toggleRoleId(role.id, editRoleIds, setEditRoleIds)}
+                      disabled={lockedOwnerRole}
+                      onClick={() => {
+                        if (lockedOwnerRole) {
+                          toast.info("Ultimul Owner activ trebuie să păstreze rolul Owner.");
+                          return;
+                        }
+                        toggleRoleId(role.id, editRoleIds, setEditRoleIds);
+                      }}
+                      title={lockedOwnerRole ? "Ultimul Owner activ este protejat." : role.name}
                       className={cn(
-                        "text-left rounded-xl border p-3 transition-colors",
+                        "text-left rounded-xl border p-3 transition-colors disabled:cursor-not-allowed disabled:opacity-70",
                         selected
                           ? "border-[color:var(--accent)]/60 bg-[color:var(--accent)]/12"
                           : "border-border hover:bg-foreground/4"
@@ -839,7 +898,13 @@ function UsersTab() {
                 </div>
                 <SegmentedControl
                   value={editStatus}
-                  onChange={setEditStatus}
+                  onChange={(next) => {
+                    if (next === "inactive" && editingIsLastActiveOwner) {
+                      toast.info("Ultimul Owner activ nu poate fi dezactivat.");
+                      return;
+                    }
+                    setEditStatus(next);
+                  }}
                   options={[
                     { id: "active", label: "Activ" },
                     { id: "inactive", label: "Inactiv" },
@@ -847,6 +912,11 @@ function UsersTab() {
                   className="self-start sm:self-center"
                 />
               </div>
+              {lastOwnerEditBlocked && (
+                <p className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-500">
+                  Ultimul Owner activ trebuie să rămână activ și să păstreze rolul Owner.
+                </p>
+              )}
             </section>
           </>
         )}
@@ -903,6 +973,10 @@ function RolesTab() {
   };
 
   const openEditRole = (role: AppRole) => {
+    if (isOwnerRole(role)) {
+      toast.info("Rolul Owner este protejat și nu poate fi editat din UI.");
+      return;
+    }
     setEditing(role);
     setName(role.name);
     setDescription(role.description);
@@ -911,6 +985,7 @@ function RolesTab() {
   };
 
   const togglePermission = (key: string) => {
+    if (isOwnerRole(editing)) return;
     setSelectedPermissions((prev) =>
       prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]
     );
@@ -918,6 +993,10 @@ function RolesTab() {
 
   const saveRole = () => {
     if (roleNameError) return;
+    if (isOwnerRole(editing)) {
+      toast.error("Rolul Owner nu poate fi modificat.");
+      return;
+    }
     const payload = {
       name: name.trim(),
       description: description.trim(),
@@ -947,6 +1026,11 @@ function RolesTab() {
 
   const deleteRole = () => {
     if (!deleteTarget) return;
+    if (isOwnerRole(deleteTarget)) {
+      toast.error("Rolul Owner nu poate fi șters.");
+      setDeleteTarget(null);
+      return;
+    }
     remove.mutate(deleteTarget.id, {
       onSuccess: () => {
         toast.success("Rol șters.");
@@ -969,43 +1053,50 @@ function RolesTab() {
         <ErrorState onRetry={roles.refetch} />
       ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {(roles.data ?? []).map((role) => (
-          <article
-            key={role.id}
-            className="rounded-2xl border border-border bg-frame p-5"
-          >
-            <div className="flex items-start justify-between mb-2">
-              <div>
-                <h3 className="text-sm font-semibold tracking-tight">{role.name}</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">{role.description}</p>
+        {(roles.data ?? []).map((role) => {
+          const owner = isOwnerRole(role);
+          const permissionPreview = owner ? ["*"] : role.permissions ?? [];
+          return (
+            <article
+              key={role.id}
+              className="rounded-2xl border border-border bg-frame p-5"
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-semibold tracking-tight">{role.name}</h3>
+                    {owner && <Badge variant="warning">protejat</Badge>}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{role.description}</p>
+                </div>
+                <Shield className="w-5 h-5 text-foreground/30" />
               </div>
-              <Shield className="w-5 h-5 text-foreground/30" />
-            </div>
-            <div className="flex flex-wrap gap-1 mt-3">
-              {(role.permissions ?? []).slice(0, 6).map((p) => (
-                <span
-                  key={p}
-                  className="text-[10px] px-2 py-0.5 rounded-full bg-foreground/5 text-muted-foreground"
-                >
-                  {p}
-                </span>
-              ))}
-              {(role.permissions ?? []).length > 6 && (
-                <span className="text-[10px] text-muted-foreground">
-                  +{(role.permissions ?? []).length - 6}
-                </span>
-              )}
-            </div>
-            <div className="mt-4 pt-4 border-t border-border flex justify-end gap-2">
-              <Button size="xs" variant="outline" onClick={() => openEditRole(role)}>
-                <Edit2 className="w-3.5 h-3.5" /> Edit
-              </Button>
-              <Button size="xs" variant="ghost" className="text-red-500" onClick={() => setDeleteTarget(role)}>
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          </article>
-        ))}
+              <div className="flex flex-wrap gap-1 mt-3">
+                {permissionPreview.slice(0, 6).map((p) => (
+                  <span
+                    key={p}
+                    className="text-[10px] px-2 py-0.5 rounded-full bg-foreground/5 text-muted-foreground"
+                  >
+                    {p === "*" ? "toate permisiunile" : p}
+                  </span>
+                ))}
+                {permissionPreview.length > 6 && (
+                  <span className="text-[10px] text-muted-foreground">
+                    +{permissionPreview.length - 6}
+                  </span>
+                )}
+              </div>
+              <div className="mt-4 pt-4 border-t border-border flex justify-end gap-2">
+                <Button size="xs" variant="outline" onClick={() => openEditRole(role)} disabled={owner}>
+                  <Edit2 className="w-3.5 h-3.5" /> Edit
+                </Button>
+                <Button size="xs" variant="ghost" className="text-red-500" onClick={() => setDeleteTarget(role)} disabled={owner}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </article>
+          );
+        })}
       </div>
       )}
       <Drawer
@@ -1021,7 +1112,7 @@ function RolesTab() {
             </Button>
             <Button
               loading={create.isPending || update.isPending}
-              disabled={!!roleNameError}
+              disabled={!!roleNameError || isOwnerRole(editing)}
               onClick={saveRole}
             >
               {editing ? "Salvează" : "Creează"}
@@ -1049,8 +1140,9 @@ function RolesTab() {
               onClick={() =>
                 setSelectedPermissions((prev) => (prev.includes("*") ? [] : ["*"]))
               }
+              disabled={isOwnerRole(editing)}
               className={cn(
-                "text-left rounded-xl border p-3 transition-colors",
+                "text-left rounded-xl border p-3 transition-colors disabled:opacity-50",
                 selectedPermissions.includes("*")
                   ? "border-[color:var(--accent)]/60 bg-[color:var(--accent)]/12"
                   : "border-border hover:bg-foreground/4"
@@ -1064,31 +1156,68 @@ function RolesTab() {
                 Include toate permisiunile curente și viitoare.
               </span>
             </button>
-            {PERMISSIONS.map((permission) => {
-              const checked =
-                selectedPermissions.includes("*") ||
-                selectedPermissions.includes(permission.key);
+          </div>
+          <div className="mt-4 space-y-4">
+            {PERMISSION_GROUPS.map((group) => {
+              const permissions = permissionsForGroup(group.id);
+              const allSelected = permissions.every((permission) =>
+                selectedPermissions.includes(permission.slug)
+              );
               return (
-                <button
-                  key={permission.key}
-                  type="button"
-                  disabled={selectedPermissions.includes("*")}
-                  onClick={() => togglePermission(permission.key)}
-                  className={cn(
-                    "text-left rounded-xl border p-3 transition-colors disabled:opacity-50",
-                    checked
-                      ? "border-foreground/35 bg-foreground/8"
-                      : "border-border hover:bg-foreground/4"
-                  )}
-                >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium">{permission.label}</span>
-                    {checked && <Check className="w-4 h-4" />}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground mt-1 block">
-                    {permission.key}
-                  </span>
-                </button>
+                <section key={group.id} className="rounded-2xl border border-border bg-background p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">{group.label}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{group.description}</p>
+                    </div>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      disabled={selectedPermissions.includes("*") || isOwnerRole(editing)}
+                      onClick={() => {
+                        setSelectedPermissions((prev) => {
+                          const groupSlugs = permissions.map((permission) => permission.slug);
+                          if (allSelected) return prev.filter((slug) => !groupSlugs.includes(slug));
+                          return [...new Set([...prev, ...groupSlugs])];
+                        });
+                      }}
+                    >
+                      {allSelected ? "Debifează" : "Selectează grup"}
+                    </Button>
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {permissions.map((permission) => {
+                      const checked =
+                        selectedPermissions.includes("*") ||
+                        selectedPermissions.includes(permission.slug);
+                      return (
+                        <button
+                          key={permission.slug}
+                          type="button"
+                          disabled={selectedPermissions.includes("*") || isOwnerRole(editing)}
+                          onClick={() => togglePermission(permission.slug)}
+                          className={cn(
+                            "text-left rounded-xl border p-3 transition-colors disabled:opacity-50",
+                            checked
+                              ? "border-foreground/35 bg-foreground/8"
+                              : "border-border hover:bg-foreground/4"
+                          )}
+                        >
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium">{permission.label}</span>
+                            {checked && <Check className="w-4 h-4" />}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground mt-1 block">
+                            {permission.slug}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground/80 mt-1 block">
+                            {permission.description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
               );
             })}
           </div>
@@ -1131,6 +1260,10 @@ function PermissionsTab() {
   }, [selectedUserId, users.data]);
 
   const toggleRolePermission = (role: AppRole, permission: string) => {
+    if (isOwnerRole(role)) {
+      toast.info("Rolul Owner este protejat și nu poate fi modificat.");
+      return;
+    }
     const current = role.permissions ?? [];
     const next = current.includes(permission)
       ? current.filter((p) => p !== permission)
@@ -1222,24 +1355,42 @@ function PermissionsTab() {
               </tr>
             </thead>
             <tbody>
-              {PERMISSIONS.map((perm) => (
-                <tr key={perm.key} className="border-b border-border last:border-0">
-                  <td className="py-2 pr-4">{perm.label}</td>
-                  {(roles.data ?? []).map((role) => {
-                    const has = role.permissions.includes("*") || role.permissions.includes(perm.key);
-                    return (
-                      <td key={role.id} className="py-2 px-2 text-center">
-                        <input
-                          type="checkbox"
-                          checked={has}
-                          disabled={role.permissions.includes("*") || update.isPending}
-                          onChange={() => toggleRolePermission(role, perm.key)}
-                          className="w-4 h-4 accent-foreground"
-                        />
+              {PERMISSION_GROUPS.map((group) => (
+                <Fragment key={group.id}>
+                  <tr key={`${group.id}-heading`} className="bg-foreground/3">
+                    <td
+                      className="py-2 pr-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                      colSpan={(roles.data ?? []).length + 1}
+                    >
+                      {group.label}
+                    </td>
+                  </tr>
+                  {permissionsForGroup(group.id).map((perm) => (
+                    <tr key={perm.slug} className="border-b border-border last:border-0">
+                      <td className="py-2 pr-4">
+                        <div>
+                          <p className="font-medium">{perm.label}</p>
+                          <p className="text-[11px] text-muted-foreground">{perm.slug}</p>
+                        </div>
                       </td>
-                    );
-                  })}
-                </tr>
+                      {(roles.data ?? []).map((role) => {
+                        const owner = isOwnerRole(role);
+                        const has = owner || role.permissions.includes("*") || role.permissions.includes(perm.slug);
+                        return (
+                          <td key={role.id} className="py-2 px-2 text-center">
+                            <input
+                              type="checkbox"
+                              checked={has}
+                              disabled={owner || role.permissions.includes("*") || update.isPending}
+                              onChange={() => toggleRolePermission(role, perm.slug)}
+                              className="w-4 h-4 accent-foreground"
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>

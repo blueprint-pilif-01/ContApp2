@@ -1,4 +1,5 @@
 import type { Principal } from "./session";
+import { hasPermissionSlug } from "./permissions";
 
 const ADMIN_ROLE_HINTS = [
   "owner",
@@ -17,14 +18,6 @@ const MANAGER_ROLE_HINTS = [
   "people",
   "resurse umane",
 ];
-
-const PERMISSION_ALIASES: Record<string, string[]> = {
-  "users.manage": ["members:write", "roles:write"],
-  "ticketing.manage": ["ticketing:write", "ticketing:delete"],
-  "hr.manage": ["members:write"],
-  "hr.self": ["members:read"],
-  "billing.manage": ["roles:write"],
-};
 
 function roleText(principal: Principal | null | undefined): string {
   return principal?.role?.toLowerCase().trim() ?? "";
@@ -50,9 +43,7 @@ export function hasWorkspacePermission(
   permission: string
 ): boolean {
   if (!principal) return false;
-  if (principal.permissions.includes("*")) return true;
-  const accepted = new Set([permission, ...(PERMISSION_ALIASES[permission] ?? [])]);
-  return principal.permissions.some((p) => accepted.has(p));
+  return hasPermissionSlug(principal.permissions, permission);
 }
 
 export function hasAnyWorkspacePermission(
@@ -68,9 +59,11 @@ export function canManageWorkspaceSettings(
   return (
     isWorkspaceAdmin(principal) ||
     hasAnyWorkspacePermission(principal, [
-      "users.manage",
+      "members:create",
+      "members:update",
       "members:write",
-      "roles:write",
+      "roles:update",
+      "roles:assign",
       "billing.manage",
     ])
   );
@@ -79,14 +72,14 @@ export function canManageWorkspaceSettings(
 export function canManageHR(principal: Principal | null | undefined): boolean {
   return (
     isWorkspaceManager(principal) ||
-    hasAnyWorkspacePermission(principal, ["hr.manage", "members:write"])
+    hasAnyWorkspacePermission(principal, ["hr:read_team", "hr:read_all", "hr.manage", "members:write"])
   );
 }
 
 export function canManageTicketing(principal: Principal | null | undefined): boolean {
   return (
     isWorkspaceManager(principal) ||
-    hasAnyWorkspacePermission(principal, ["ticketing.manage", "ticketing:write"])
+    hasAnyWorkspacePermission(principal, ["ticketing:update", "ticketing:assign", "ticketing.manage", "ticketing:write"])
   );
 }
 
@@ -100,7 +93,16 @@ export function inferWorkspacePermissions(
   const normalized = role.toLowerCase();
   if (ADMIN_ROLE_HINTS.some((hint) => normalized.includes(hint))) return ["*"];
   if (MANAGER_ROLE_HINTS.some((hint) => normalized.includes(hint))) {
-    return ["members:read", "ticketing:read", "ticketing:write"];
+    return [
+      "dashboard:read",
+      "members:read",
+      "teams:read",
+      "ticketing:read",
+      "ticketing:write",
+      "hr:read_team",
+      "hr:time_approve",
+      "hr:leave_approve",
+    ];
   }
-  return [];
+  return ["dashboard:read", "profile:update_self", "hr:read_self", "hr:time_create_self", "hr:leave_request", "hr:certificate_request"];
 }

@@ -13,7 +13,6 @@ import {
   FileText,
   Folder,
   StickyNote,
-  KanbanSquare,
   Hash,
   Activity,
   Send,
@@ -42,7 +41,6 @@ import { isApiError } from "../../../lib/api";
 import { ContractsTab } from "./tabs/ContractsTab";
 import { DossierTab } from "./tabs/DossierTab";
 import { NotesTab } from "./tabs/NotesTab";
-import { TicketsTab } from "./tabs/TicketsTab";
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -208,7 +206,6 @@ export default function ClientDetailPage() {
     },
     { id: "dossier", label: "Dosar", icon: <Folder className="w-4 h-4" /> },
     { id: "notes", label: "Note", icon: <StickyNote className="w-4 h-4" /> },
-    { id: "tickets", label: "Tickete", icon: <KanbanSquare className="w-4 h-4" /> },
     { id: "activity", label: "Activitate", icon: <Activity className="w-4 h-4" /> },
   ];
 
@@ -457,9 +454,6 @@ export default function ClientDetailPage() {
       </TabPanel>
       <TabPanel id="notes" active={activeTab}>
         <NotesTab clientId={numericId} />
-      </TabPanel>
-      <TabPanel id="tickets" active={activeTab}>
-        <TicketsTab clientId={numericId} />
       </TabPanel>
       <TabPanel id="activity" active={activeTab}>
         <div className="bg-frame border border-border rounded-2xl p-5 mt-4">
