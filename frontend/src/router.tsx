@@ -8,6 +8,7 @@ import AdminLoginPage from "./app/auth/AdminLoginPage";
 import { AdminShell } from "./app/admin/AdminShell";
 import { RequireAdmin } from "./app/admin/RequireAdmin";
 import { RequireExtension } from "./components/ui/RequireExtension";
+import { RequireWorkspaceSettingsAccess } from "./components/ui/RequireWorkspaceAccess";
 import type { ExtensionKey } from "./lib/extensions";
 
 // ── Landing (public marketing site) ──────────────────────────────────────────
@@ -127,8 +128,8 @@ export const router = createBrowserRouter([
 
       // Phase 7 — Settings (always free)
       { path: "settings",    element: <S><SettingsPage /></S> },
-      { path: "settings/users-roles", element: <S><UsersRolesPage /></S> },
-      { path: "settings/users/:id", element: <S><UserProfilePage /></S> },
+      { path: "settings/users-roles", element: <S><RequireWorkspaceSettingsAccess><UsersRolesPage /></RequireWorkspaceSettingsAccess></S> },
+      { path: "settings/users/:id", element: <S><RequireWorkspaceSettingsAccess><UserProfilePage /></RequireWorkspaceSettingsAccess></S> },
 
       // Informare — Legislation Monitor
       { path: "legislation", element: <G ext="legislation_monitor"><LegislationPage /></G> },
@@ -136,8 +137,8 @@ export const router = createBrowserRouter([
       // New features
       { path: "reports", element: <S><ReportsPage /></S> },
       { path: "documents", element: <S><DocumentsPage /></S> },
-      { path: "settings/activity-log", element: <S><ActivityLogPage /></S> },
-      { path: "settings/automations", element: <S><AutomationRulesPage /></S> },
+      { path: "settings/activity-log", element: <S><RequireWorkspaceSettingsAccess><ActivityLogPage /></RequireWorkspaceSettingsAccess></S> },
+      { path: "settings/automations", element: <S><RequireWorkspaceSettingsAccess><AutomationRulesPage /></RequireWorkspaceSettingsAccess></S> },
 
       { path: "_kitchen-sink", element: <S><AiKitchenSinkPage /></S> },
     ],

@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-
-type ShortcutMap = Record<string, () => void>;
+import { usePrincipal } from "./useMe";
+import { canManageWorkspaceSettings } from "../lib/access";
 
 /**
  * Global keyboard shortcuts for the app.
@@ -23,22 +23,10 @@ type ShortcutMap = Record<string, () => void>;
  */
 export function useGlobalShortcuts(onToggleHelp?: () => void) {
   const navigate = useNavigate();
+  const principal = usePrincipal("user");
+  const canManageSettings = canManageWorkspaceSettings(principal);
   const pendingG = useRef(false);
   const timeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  const goRoutes: ShortcutMap = {
-    d: () => navigate("/app/dashboard"),
-    c: () => navigate("/app/clients"),
-    t: () => navigate("/app/ticketing"),
-    k: () => navigate("/app/calendar"),
-    r: () => navigate("/app/reports"),
-    n: () => navigate("/app/notebook"),
-    h: () => navigate("/app/hr"),
-    s: () => navigate("/app/settings"),
-    l: () => navigate("/app/legislation"),
-    a: () => navigate("/app/settings/activity-log"),
-    f: () => navigate("/app/documents"),
-  };
 
   const handler = useCallback(
     (e: KeyboardEvent) => {
@@ -62,10 +50,23 @@ export function useGlobalShortcuts(onToggleHelp?: () => void) {
       if (pendingG.current) {
         pendingG.current = false;
         clearTimeout(timeout.current);
-        const route = goRoutes[e.key.toLowerCase()];
-        if (route) {
+        const key = e.key.toLowerCase();
+        const href = {
+          d: "/app/dashboard",
+          c: "/app/clients",
+          t: "/app/ticketing",
+          k: "/app/calendar",
+          r: "/app/reports",
+          n: "/app/notebook",
+          h: "/app/hr",
+          s: "/app/settings",
+          l: "/app/legislation",
+          f: "/app/documents",
+          ...(canManageSettings ? { a: "/app/settings/activity-log" } : {}),
+        }[key];
+        if (href) {
           e.preventDefault();
-          route();
+          navigate(href);
         }
         return;
       }
@@ -78,7 +79,7 @@ export function useGlobalShortcuts(onToggleHelp?: () => void) {
         return;
       }
     },
-    [navigate, onToggleHelp]
+    [canManageSettings, navigate, onToggleHelp]
   );
 
   useEffect(() => {

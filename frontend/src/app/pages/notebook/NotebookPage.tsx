@@ -287,8 +287,6 @@ export default function NotebookPage() {
         title: "Document fără titlu",
         content: "",
         visibility: defaultVisibility,
-        owner_id: 1,
-        date_modified: new Date().toISOString(),
       },
       {
         onSuccess: (data) => {

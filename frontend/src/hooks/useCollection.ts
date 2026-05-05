@@ -23,11 +23,17 @@ function unwrapItem<T>(value: T | { data: T }): T {
   return value as T;
 }
 
-export function useCollectionList<T>(key: string, path: string, query = "") {
+export function useCollectionList<T>(
+  key: string,
+  path: string,
+  query = "",
+  enabled = true
+) {
   return useQuery<T[]>({
     queryKey: [key, path, query],
     queryFn: async () =>
       unwrapList<T>(await api.get<T[] | Record<string, unknown>>(`${path}${query ? `?${query}` : ""}`)),
+    enabled,
   });
 }
 

@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { usePrincipal } from "../../hooks/useMe";
+import { canManageWorkspaceSettings } from "../../lib/access";
 
 interface CommandEntry {
   label: string;
@@ -26,6 +28,7 @@ interface CommandEntry {
   hint?: string;
   icon: LucideIcon;
   group: string;
+  adminOnly?: boolean;
 }
 
 const COMMANDS: CommandEntry[] = [
@@ -42,7 +45,7 @@ const COMMANDS: CommandEntry[] = [
   { label: "HR", href: "/app/hr", icon: BriefcaseBusiness, group: "People" },
   { label: "Legislație", href: "/app/legislation", icon: Scale, group: "People" },
   { label: "Setări", href: "/app/settings", icon: Settings, group: "Setări" },
-  { label: "Users & Roles", href: "/app/settings/users-roles", icon: Users, group: "Setări" },
+  { label: "Users & Roles", href: "/app/settings/users-roles", icon: Users, group: "Setări", adminOnly: true },
 ];
 
 export function CommandPalette() {
@@ -50,6 +53,8 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [hover, setHover] = useState(0);
   const navigate = useNavigate();
+  const principal = usePrincipal("user");
+  const canManageSettings = canManageWorkspaceSettings(principal);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -76,10 +81,11 @@ export function CommandPalette() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const visible = COMMANDS.filter((item) => !item.adminOnly || canManageSettings);
     return q
-      ? COMMANDS.filter((item) => item.label.toLowerCase().includes(q))
-      : COMMANDS;
-  }, [query]);
+      ? visible.filter((item) => item.label.toLowerCase().includes(q))
+      : visible;
+  }, [canManageSettings, query]);
 
   useEffect(() => {
     if (hover >= filtered.length) setHover(0);

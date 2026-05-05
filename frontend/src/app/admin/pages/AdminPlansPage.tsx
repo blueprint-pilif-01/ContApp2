@@ -58,6 +58,10 @@ interface PlanForm {
   features: ExtensionKey[];
 }
 
+type PlanPayload = Omit<PlanForm, "stripe_price_id"> & {
+  stripe_price_id: string | null;
+};
+
 const CURRENCY_OPTIONS = ["RON", "EUR", "USD"];
 
 const LIMIT_DEFS: { key: keyof PlanLimits; label: string; unit: string }[] = [
@@ -116,9 +120,8 @@ export default function AdminPlansPage() {
   );
 
   const create = useMutation({
-    mutationFn: (payload: Omit<PlanForm, "stripe_price_id"> & {
-      stripe_price_id: string | null;
-    }) => api.post<SubscriptionPlan>("/admin/subscription-plans", payload),
+    mutationFn: (payload: PlanPayload) =>
+      api.post<SubscriptionPlan>("/admin/subscription-plans", payload),
     onSuccess: (plan) => {
       qc.invalidateQueries({ queryKey: ["admin-subscription-plans"] });
       toast.success(`Planul „${plan.name}” a fost creat.`);
@@ -130,7 +133,7 @@ export default function AdminPlansPage() {
   });
 
   const update = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: PlanForm }) =>
+    mutationFn: ({ id, body }: { id: number; body: PlanPayload }) =>
       api.put<SubscriptionPlan>(`/admin/subscription-plans/${id}`, body),
     onSuccess: (plan) => {
       qc.invalidateQueries({ queryKey: ["admin-subscription-plans"] });
@@ -191,7 +194,7 @@ export default function AdminPlansPage() {
       toast.error("Numele planului este obligatoriu.");
       return;
     }
-    const payload = {
+    const payload: PlanPayload = {
       ...form,
       slug:
         form.slug.trim() ||
@@ -202,7 +205,7 @@ export default function AdminPlansPage() {
       stripe_price_id: form.stripe_price_id.trim() || null,
     };
     if (drawerOpen === "edit" && editTarget) {
-      update.mutate({ id: editTarget.id, body: { ...form, slug: payload.slug } });
+      update.mutate({ id: editTarget.id, body: payload });
     } else {
       create.mutate(payload);
     }

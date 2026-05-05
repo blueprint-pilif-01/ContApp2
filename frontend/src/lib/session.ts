@@ -10,6 +10,7 @@ export interface WorkspacePrincipal {
   organisation_id: number;
   name: string;
   role_label: string;
+  permissions?: string[];
 }
 
 export interface UserPrincipal {

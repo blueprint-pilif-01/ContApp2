@@ -12,6 +12,7 @@ import {
   type UserPrincipal,
   type WorkspacePrincipal,
 } from "../lib/session";
+import { inferWorkspacePermissions } from "../lib/access";
 
 export const ME_KEY = ["me"] as const;
 export const ADMIN_ME_KEY = ["admin", "me"] as const;
@@ -27,6 +28,12 @@ type UserLoginResponse = {
   };
   workspace?: WorkspacePrincipal;
   workspaces?: WorkspacePrincipal[];
+};
+
+type SwitchOrganisationResponse = {
+  access_token: string;
+  token_type: "Bearer";
+  workspace: WorkspacePrincipal;
 };
 
 type AdminLoginResponse = {
@@ -57,7 +64,7 @@ export async function loginUser(credentials: LoginCredentials): Promise<UserPrin
     organisation_id: workspace?.organisation_id ?? null,
     membership_id: workspace?.membership_id ?? null,
     workspace_name: workspace?.name ?? "",
-    workspaces: res.workspaces ?? [],
+    workspaces: res.workspaces ?? (workspace ? [workspace] : []),
     type: "account",
     first_name: res.account.first_name,
     last_name: res.account.last_name,
@@ -65,10 +72,47 @@ export async function loginUser(credentials: LoginCredentials): Promise<UserPrin
     phone: "",
     status: "active",
     role: workspace?.role_label ?? "Member",
-    permissions: ["*"],
+    permissions: inferWorkspacePermissions(workspace),
   };
   const session: Session = { accessToken: res.access_token, principal };
   setSession(session, "user");
+  return principal;
+}
+
+/** Switch the active organisation for the current user session. */
+export async function switchOrganisation(
+  organisationId: number
+): Promise<UserPrincipal> {
+  const current = getSession("user");
+  if (!current || current.principal.kind !== "user") {
+    throw new Error("Nu există o sesiune de utilizator activă.");
+  }
+
+  const res = await api.post<SwitchOrganisationResponse>(
+    "/auth/switch-organisation",
+    { organisation_id: organisationId },
+    { actor: "user" }
+  );
+  const workspace = res.workspace;
+  const existing = current.principal.workspaces ?? [];
+  const workspaces = existing.some(
+    (w) => w.organisation_id === workspace.organisation_id
+  )
+    ? existing.map((w) =>
+        w.organisation_id === workspace.organisation_id ? workspace : w
+      )
+    : [workspace, ...existing];
+
+  const principal: UserPrincipal = {
+    ...current.principal,
+    organisation_id: workspace.organisation_id,
+    membership_id: workspace.membership_id,
+    workspace_name: workspace.name,
+    workspaces,
+    role: workspace.role_label || current.principal.role,
+    permissions: inferWorkspacePermissions(workspace),
+  };
+  setSession({ accessToken: res.access_token, principal }, "user");
   return principal;
 }
 
@@ -148,5 +192,6 @@ export function useAdminMe(): {
 
 /** Returns true if the session principal has the given permission. */
 export function hasPermission(permission: string, actor?: SessionActor): boolean {
-  return getSession(actor)?.principal.permissions.includes(permission) ?? false;
+  const permissions = getSession(actor)?.principal.permissions ?? [];
+  return permissions.includes("*") || permissions.includes(permission);
 }
