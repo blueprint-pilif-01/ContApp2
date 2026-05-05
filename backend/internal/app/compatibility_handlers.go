@@ -7,10 +7,17 @@ import (
 	"backend/internal/platform/httpx"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
+)
+
+var (
+	errSystemRoleProtected = errors.New("system role cannot be changed")
+	errUnknownPermission   = errors.New("unknown permission")
+	errLastOwnerProtected  = errors.New("last owner cannot be removed")
 )
 
 func (a *App) updateAdminOrganisation(w http.ResponseWriter, r *http.Request) {
@@ -453,6 +460,12 @@ func (a *App) updateSettingsUser(w http.ResponseWriter, r *http.Request) {
 		JobTitle:       input.Title,
 		Status:         defaultString(input.Status, existing.Status),
 	}
+	if member.Status != "active" {
+		if err := ensureMembershipIsNotLastOwner(r.Context(), a.Repo.Connection(), claims.OrganisationID, id); err != nil {
+			handleOwnerProtectionError(w, err)
+			return
+		}
+	}
 	if err := a.Repo.UpdateWorkspaceMember(r.Context(), &member); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "could not update user")
 		return
@@ -460,7 +473,7 @@ func (a *App) updateSettingsUser(w http.ResponseWriter, r *http.Request) {
 	roleIDs := normalizedRoleIDs(input.RoleIDs, input.RoleID)
 	if len(roleIDs) > 0 {
 		if err := a.Repo.SetMembershipRoles(r.Context(), claims.OrganisationID, id, roleIDs); err != nil {
-			httpx.Error(w, http.StatusInternalServerError, "could not assign roles")
+			handleOwnerProtectionError(w, err)
 			return
 		}
 	}
@@ -480,6 +493,10 @@ func (a *App) deleteSettingsUser(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r, "id")
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := ensureMembershipIsNotLastOwner(r.Context(), a.Repo.Connection(), claims.OrganisationID, id); err != nil {
+		handleOwnerProtectionError(w, err)
 		return
 	}
 	if _, err := a.Repo.Connection().ExecContext(r.Context(), `
@@ -592,10 +609,70 @@ func (a *App) createSettingsRole(w http.ResponseWriter, r *http.Request) {
 	}
 	role, err := upsertSettingsRole(r.Context(), a.Repo.Connection(), claims.OrganisationID, 0, input)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "could not create role")
+		handleRoleWriteError(w, err, "could not create role")
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, role)
+}
+
+func handleRoleWriteError(w http.ResponseWriter, err error, fallback string) {
+	if errors.Is(err, errSystemRoleProtected) {
+		httpx.Error(w, http.StatusBadRequest, "system role cannot be changed")
+		return
+	}
+	if errors.Is(err, errUnknownPermission) {
+		httpx.Error(w, http.StatusBadRequest, "unknown permission")
+		return
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		httpx.Error(w, http.StatusNotFound, "role not found")
+		return
+	}
+	httpx.Error(w, http.StatusInternalServerError, fallback)
+}
+
+func handleOwnerProtectionError(w http.ResponseWriter, err error) {
+	if errors.Is(err, errLastOwnerProtected) || strings.Contains(err.Error(), "last owner cannot be removed") {
+		httpx.Error(w, http.StatusBadRequest, "last owner cannot be removed")
+		return
+	}
+	httpx.Error(w, http.StatusInternalServerError, "could not update owner-protected membership")
+}
+
+func ensureMembershipIsNotLastOwner(ctx context.Context, db *sql.DB, organisationID, membershipID int64) error {
+	var isOwner bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM membership_roles mr
+			JOIN roles r ON r.id = mr.role_id
+			WHERE mr.membership_id = $1
+				AND r.organisation_id = $2
+				AND r.slug = 'owner'
+		)
+	`, membershipID, organisationID).Scan(&isOwner); err != nil {
+		return err
+	}
+	if !isOwner {
+		return nil
+	}
+	var activeOwners int
+	if err := db.QueryRowContext(ctx, `
+		SELECT count(DISTINCT m.id)
+		FROM organisation_memberships m
+		JOIN membership_roles mr ON mr.membership_id = m.id
+		JOIN roles r ON r.id = mr.role_id
+		WHERE m.organisation_id = $1
+			AND m.deleted_at IS NULL
+			AND m.status = 'active'
+			AND r.slug = 'owner'
+	`, organisationID).Scan(&activeOwners); err != nil {
+		return err
+	}
+	if activeOwners <= 1 {
+		return errLastOwnerProtected
+	}
+	return nil
 }
 
 func (a *App) updateSettingsRole(w http.ResponseWriter, r *http.Request) {
@@ -615,7 +692,7 @@ func (a *App) updateSettingsRole(w http.ResponseWriter, r *http.Request) {
 	}
 	role, err := upsertSettingsRole(r.Context(), a.Repo.Connection(), claims.OrganisationID, id, input)
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "could not update role")
+		handleRoleWriteError(w, err, "could not update role")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, role)
@@ -730,12 +807,30 @@ func upsertSettingsRole(ctx context.Context, db *sql.DB, organisationID, roleID 
 			RETURNING id
 		`, organisationID, slug, strings.TrimSpace(input.Name)).Scan(&roleID)
 	} else {
-		_, err = tx.ExecContext(ctx, `
+		var systemRole bool
+		if err := tx.QueryRowContext(ctx, `
+			SELECT system_role
+			FROM roles
+			WHERE organisation_id = $1
+				AND id = $2
+		`, organisationID, roleID).Scan(&systemRole); err != nil {
+			return nil, err
+		}
+		if systemRole {
+			return nil, errSystemRoleProtected
+		}
+		result, err := tx.ExecContext(ctx, `
 			UPDATE roles
 			SET slug = $3, name = $4
 			WHERE organisation_id = $1
 				AND id = $2
 		`, organisationID, roleID, slug, strings.TrimSpace(input.Name))
+		if err != nil {
+			return nil, err
+		}
+		if rows, _ := result.RowsAffected(); rows == 0 {
+			return nil, sql.ErrNoRows
+		}
 	}
 	if err != nil {
 		return nil, err
@@ -750,11 +845,13 @@ func upsertSettingsRole(ctx context.Context, db *sql.DB, organisationID, roleID 
 		}
 		var permissionID int64
 		if err := tx.QueryRowContext(ctx, `
-			INSERT INTO permissions (slug, description)
-			VALUES ($1, $1)
-			ON CONFLICT (slug) DO UPDATE SET description = COALESCE(permissions.description, EXCLUDED.description)
-			RETURNING id
+			SELECT id
+			FROM permissions
+			WHERE slug = $1
 		`, permission).Scan(&permissionID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, fmt.Errorf("%w: %s", errUnknownPermission, permission)
+			}
 			return nil, err
 		}
 		if _, err := tx.ExecContext(ctx, `
