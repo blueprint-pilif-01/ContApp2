@@ -343,6 +343,11 @@ func (r *PostgresDBRepo) UpdateWorkspaceMemberStatus(ctx context.Context, organi
 	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
 	defer cancel()
 
+	if status != "active" {
+		if err := ensureMembershipIsNotLastOwner(ctx, r.DB, organisationID, membershipID); err != nil {
+			return err
+		}
+	}
 	_, err := r.DB.ExecContext(ctx, `
 		UPDATE organisation_memberships
 		SET status = $3, updated_at = now()
@@ -418,6 +423,20 @@ func (r *PostgresDBRepo) SetMembershipRoles(ctx context.Context, organisationID,
 		return sql.ErrNoRows
 	}
 
+	currentHasOwner, err := membershipHasOwnerRole(ctx, tx, organisationID, membershipID)
+	if err != nil {
+		return err
+	}
+	nextHasOwner, err := roleIDsIncludeOwner(ctx, tx, organisationID, roleIDs)
+	if err != nil {
+		return err
+	}
+	if currentHasOwner && !nextHasOwner {
+		if err := ensureMembershipIsNotLastOwner(ctx, tx, organisationID, membershipID); err != nil {
+			return err
+		}
+	}
+
 	if _, err := tx.ExecContext(ctx, `DELETE FROM membership_roles WHERE membership_id = $1`, membershipID); err != nil {
 		return err
 	}
@@ -437,6 +456,76 @@ func (r *PostgresDBRepo) SetMembershipRoles(ctx context.Context, organisationID,
 		}
 	}
 	return tx.Commit()
+}
+
+type ownerGuardDB interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+func membershipHasOwnerRole(ctx context.Context, db ownerGuardDB, organisationID, membershipID int64) (bool, error) {
+	var hasOwner bool
+	err := db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM membership_roles mr
+			JOIN roles r ON r.id = mr.role_id
+			WHERE mr.membership_id = $1
+				AND r.organisation_id = $2
+				AND r.slug = 'owner'
+		)
+	`, membershipID, organisationID).Scan(&hasOwner)
+	return hasOwner, err
+}
+
+func roleIDsIncludeOwner(ctx context.Context, db ownerGuardDB, organisationID int64, roleIDs []int64) (bool, error) {
+	if len(roleIDs) == 0 {
+		return false, nil
+	}
+	for _, roleID := range roleIDs {
+		var isOwner bool
+		if err := db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1
+				FROM roles
+				WHERE organisation_id = $1
+					AND id = $2
+					AND slug = 'owner'
+			)
+		`, organisationID, roleID).Scan(&isOwner); err != nil {
+			return false, err
+		}
+		if isOwner {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func ensureMembershipIsNotLastOwner(ctx context.Context, db ownerGuardDB, organisationID, membershipID int64) error {
+	isOwner, err := membershipHasOwnerRole(ctx, db, organisationID, membershipID)
+	if err != nil {
+		return err
+	}
+	if !isOwner {
+		return nil
+	}
+	var activeOwners int
+	if err := db.QueryRowContext(ctx, `
+		SELECT count(DISTINCT m.id)
+		FROM organisation_memberships m
+		JOIN membership_roles mr ON mr.membership_id = m.id
+		JOIN roles r ON r.id = mr.role_id
+		WHERE m.organisation_id = $1
+			AND m.deleted_at IS NULL
+			AND m.status = 'active'
+			AND r.slug = 'owner'
+	`, organisationID).Scan(&activeOwners); err != nil {
+		return err
+	}
+	if activeOwners <= 1 {
+		return fmt.Errorf("last owner cannot be removed")
+	}
+	return nil
 }
 
 func memberSelectQuery() string {
