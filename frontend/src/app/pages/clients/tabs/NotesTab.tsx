@@ -6,51 +6,62 @@ import { Input, Textarea } from "../../../../components/ui/Input";
 import { SkeletonList } from "../../../../components/ui/Skeleton";
 import { useToast } from "../../../../components/ui/Toast";
 import { useCollectionCreate, useCollectionList } from "../../../../hooks/useCollection";
-import { useMe } from "../../../../hooks/useMe";
 import { fmtRelative } from "../../../../lib/utils";
 
 type ClientNote = {
   id: number;
-  client_id?: number;
-  owner_id?: number;
+  client_id?: number | null;
+  owner_user_id?: number | null;
   title?: string;
   name?: string;
+  body?: string;
   content?: string;
   data?: string;
   visibility?: "personal" | "shared";
+  pinned?: boolean;
+  created_at?: string;
+  updated_at?: string;
   date_added?: string;
   date_modified?: string;
 };
 
+type ClientNoteCreate = {
+  client_id: number;
+  title: string;
+  body: string;
+  visibility: "shared";
+  pinned: boolean;
+};
+
 export function NotesTab({ clientId }: { clientId: number }) {
   const toast = useToast();
-  const { data: me } = useMe();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
 
   const key = `client-notes-${clientId}`;
   const notes = useCollectionList<ClientNote>(
     key,
-    "/workspace/notes",
+    "/workspace-notes",
     `client_id=${clientId}`
   );
-  const create = useCollectionCreate<object, ClientNote>(key, "/workspace/notes");
+  const create = useCollectionCreate<ClientNoteCreate, ClientNote>(
+    key,
+    "/workspace-notes"
+  );
 
-  const rows = notes.data ?? [];
+  const rows = (notes.data ?? []).filter(
+    (note) => Number(note.client_id) === clientId
+  );
 
   const addNote = () => {
     if (!title.trim() && !body.trim()) return;
     create.mutate(
       {
         client_id: clientId,
-        owner_id: me?.id ?? 0,
         title: title.trim() || "Notiță client",
-        name: title.trim() || "Notiță client",
-        content: body.trim(),
-        data: body.trim(),
+        body: body.trim(),
         visibility: "shared",
-        date_added: new Date().toISOString(),
-        date_modified: new Date().toISOString(),
+        pinned: false,
       },
       {
         onSuccess: () => {
@@ -107,10 +118,16 @@ export function NotesTab({ clientId }: { clientId: number }) {
                       {note.title ?? note.name ?? `Notiță #${note.id}`}
                     </p>
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap mt-1">
-                      {note.content ?? note.data ?? "—"}
+                      {note.body ?? note.content ?? note.data ?? "—"}
                     </p>
                     <p className="text-[11px] text-muted-foreground mt-2">
-                      {fmtRelative(note.date_modified ?? note.date_added ?? "")}
+                      {fmtRelative(
+                        note.updated_at ??
+                          note.created_at ??
+                          note.date_modified ??
+                          note.date_added ??
+                          ""
+                      )}
                     </p>
                   </div>
                 </div>

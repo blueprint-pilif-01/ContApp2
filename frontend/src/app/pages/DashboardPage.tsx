@@ -26,6 +26,7 @@ import { Skeleton, SkeletonList } from "../../components/ui/Skeleton";
 import { ErrorState } from "../../components/ui/EmptyState";
 import { useCollectionItem } from "../../hooks/useCollection";
 import { useMe } from "../../hooks/useMe";
+import { canManageWorkspaceSettings } from "../../lib/access";
 import { fmtRelative, fmtDate, cn } from "../../lib/utils";
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
@@ -166,6 +167,7 @@ function UsageBar({
 export default function DashboardPage() {
   const { data: me } = useMe();
   const navigate = useNavigate();
+  const canManageSettings = canManageWorkspaceSettings(me);
   const overview = useCollectionItem<DashboardOverview>(
     "dashboard-overview",
     "/dashboard/overview"
@@ -545,6 +547,7 @@ export default function DashboardPage() {
           title="Volum echipă"
           description="Tickete per membru săptămâna asta."
           actions={
+            canManageSettings ? (
             <Button
               size="xs"
               variant="ghost"
@@ -552,6 +555,7 @@ export default function DashboardPage() {
             >
               Echipă <ArrowRight className="w-3 h-3" />
             </Button>
+            ) : undefined
           }
           className="lg:col-span-3"
         >

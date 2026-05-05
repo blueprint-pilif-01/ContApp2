@@ -7,28 +7,26 @@ import { EmptyState } from "../../../../components/ui/EmptyState";
 import { SkeletonList } from "../../../../components/ui/Skeleton";
 import { ErrorState } from "../../../../components/ui/EmptyState";
 import { useCollectionList } from "../../../../hooks/useCollection";
+import {
+  ticketPriorityBar,
+  ticketPriorityLabel,
+  ticketPriorityVariant,
+} from "../../../../lib/ticketing";
 import { fmtDate, fmtRelative } from "../../../../lib/utils";
 
 type Ticket = {
   id: number;
   title: string;
   description: string;
-  status: "todo" | "in_progress" | "blocked" | "done";
-  priority: "low" | "medium" | "high";
+  status: "todo" | "in_progress" | "blocked" | "done" | "archived";
+  priority: string;
   assignee_id: number | null;
+  client_id?: number | null;
   due_date: string;
   updated_at: string;
 };
 
-const priorityVariant: Record<Ticket["priority"], "danger" | "warning" | "neutral"> = {
-  high: "danger",
-  medium: "warning",
-  low: "neutral",
-};
-
-/**
- * Tickets linked to this client. Backend filters with `?client_id=`.
- */
+/** Tickets linked to this client. Keep a local guard while backend filtering matures. */
 export function TicketsTab({ clientId }: { clientId: number }) {
   const list = useCollectionList<Ticket>(
     "client-tickets",
@@ -52,7 +50,9 @@ export function TicketsTab({ clientId }: { clientId: number }) {
     );
   }
 
-  const tickets = list.data ?? [];
+  const tickets = (list.data ?? []).filter(
+    (ticket) => Number(ticket.client_id) === clientId
+  );
 
   if (tickets.length === 0) {
     return (
@@ -82,14 +82,7 @@ export function TicketsTab({ clientId }: { clientId: number }) {
             className="px-4 py-3 flex items-center gap-3 hover:bg-foreground/3 transition-colors"
           >
             <span
-              className={
-                "w-1.5 h-10 rounded-full " +
-                (t.priority === "high"
-                  ? "bg-red-500"
-                  : t.priority === "medium"
-                    ? "bg-amber-500"
-                    : "bg-foreground/30")
-              }
+              className={`w-1.5 h-10 rounded-full ${ticketPriorityBar(t.priority)}`}
             />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate">{t.title}</p>
@@ -98,7 +91,9 @@ export function TicketsTab({ clientId }: { clientId: number }) {
               )}
             </div>
             {t.assignee_id && <Avatar name={`User #${t.assignee_id}`} size="xs" />}
-            <Badge variant={priorityVariant[t.priority]}>{t.priority}</Badge>
+            <Badge variant={ticketPriorityVariant(t.priority)}>
+              {ticketPriorityLabel(t.priority)}
+            </Badge>
             <Badge variant="neutral">{t.status.replace("_", " ")}</Badge>
             <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
               <Clock className="w-3 h-3" />

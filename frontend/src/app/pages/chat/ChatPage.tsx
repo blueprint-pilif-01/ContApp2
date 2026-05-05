@@ -21,6 +21,7 @@ import { AIResultCard, AIShimmerText, AIThinkingBlob } from "../../../components
 import { Button } from "../../../components/ui/Button";
 import { useCollectionCreate, useCollectionList } from "../../../hooks/useCollection";
 import { useExtensions } from "../../../hooks/useExtensions";
+import { usePrincipal } from "../../../hooks/useMe";
 import { useToast } from "../../../components/ui/Toast";
 import { api } from "../../../lib/api";
 import { deriveTicket } from "../../../lib/ai";
@@ -54,6 +55,9 @@ type ChatAttachment = {
   dataUrl?: string;
 };
 
+const MESSAGE_RENDER_BATCH = 120;
+const CONVERSATION_RENDER_BATCH = 80;
+
 function stripHtml(content: string): string {
   return content
     .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, " ")
@@ -81,6 +85,8 @@ function renderMessageHtml(content: string): string {
 export default function ChatPage() {
   const ext = useExtensions();
   const toast = useToast();
+  const principal = usePrincipal("user");
+  const myMembershipId = principal?.kind === "user" ? principal.membership_id : null;
   const aiAvailable = ext.canUse("ai_assistant");
   const conversations = useCollectionList<Conversation>(
     "chat-conversations",
@@ -97,6 +103,8 @@ export default function ChatPage() {
   const [botDraft, setBotDraft] = useState("");
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [visibleMessageCount, setVisibleMessageCount] = useState(MESSAGE_RENDER_BATCH);
+  const [conversationLimit, setConversationLimit] = useState(CONVERSATION_RENDER_BATCH);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -107,18 +115,28 @@ export default function ChatPage() {
     }
   }, [activeId, conversations.data]);
 
+  useEffect(() => {
+    setVisibleMessageCount(MESSAGE_RENDER_BATCH);
+  }, [activeId]);
+
+  useEffect(() => {
+    setConversationLimit(CONVERSATION_RENDER_BATCH);
+  }, [query]);
+
   const messages = useCollectionList<Message>(
     "chat-messages",
     activeId
       ? `/chat/conversations/${activeId}/messages`
-      : "/chat/conversations/901/messages"
+      : "/chat/conversations/0/messages",
+    "",
+    activeId !== null
   );
 
   const send = useCollectionCreate<{ content: string }, Message>(
     "chat-messages",
     activeId
       ? `/chat/conversations/${activeId}/messages`
-      : "/chat/conversations/901/messages"
+      : "/chat/conversations/0/messages"
   );
 
   useEffect(() => {
@@ -142,9 +160,25 @@ export default function ChatPage() {
     );
   }, [conversations.data, query]);
 
+  const visibleConversations = filteredConversations.slice(0, conversationLimit);
+  const hiddenConversations = Math.max(0, filteredConversations.length - visibleConversations.length);
+  const allMessages = messages.data ?? [];
+  const hiddenMessages = Math.max(0, allMessages.length - visibleMessageCount);
+  const visibleMessages = allMessages.slice(hiddenMessages);
+
+  const focusComposer = () => composerRef.current?.focus();
+  const clearComposer = () => {
+    setDraft("");
+    if (composerRef.current) composerRef.current.innerHTML = "";
+  };
+
   const triggerBot = async () => {
     const plain = stripHtml(draft);
     if (!plain.trim()) return;
+    if (!activeId) {
+      toast.error("Selectează o conversație înainte de a crea un ticket din chat.");
+      return;
+    }
     if (!aiAvailable) {
       toast.error("AI Assistant nu este activ. Activează-l din Setări → Abonament.");
       return;
@@ -163,11 +197,10 @@ export default function ChatPage() {
     await send.mutateAsync({ content: `@bot ${latest}` });
     setConfirmation(result.confirmation || `Am creat ticketul #${result.ticket.id}.`);
     setBotBusy(false);
-    setDraft("");
+    clearComposer();
     setAttachments([]);
   };
 
-  const focusComposer = () => composerRef.current?.focus();
   const runCommand = (command: string, value?: string) => {
     focusComposer();
     document.execCommand(command, false, value);
@@ -209,6 +242,10 @@ export default function ChatPage() {
   const handleSend = async () => {
     const plain = stripHtml(draft);
     if (!plain.trim() && attachments.length === 0) return;
+    if (!activeId) {
+      toast.error("Selectează o conversație înainte de trimitere.");
+      return;
+    }
     if (plain.trim().toLowerCase().startsWith("@bot")) {
       await triggerBot();
       return;
@@ -221,7 +258,7 @@ export default function ChatPage() {
         : "";
     const payload = `${draft || escapeHtml(plain)}${attachmentBlock}`;
     await send.mutateAsync({ content: payload });
-    setDraft("");
+    clearComposer();
     setAttachments([]);
   };
 
@@ -247,7 +284,12 @@ export default function ChatPage() {
                 </span>
               )}
             </div>
-            <Button size="xs" title="Conversație nouă">
+            <Button
+              size="xs"
+              variant="outline"
+              disabled
+              title="Backend-ul expune momentan lista și mesajele, nu crearea de conversații."
+            >
               <MessageSquarePlus className="w-3.5 h-3.5" />
             </Button>
           </div>
@@ -269,7 +311,7 @@ export default function ChatPage() {
             </p>
           ) : (
             <ul className="p-1">
-              {filteredConversations.map((c) => {
+              {visibleConversations.map((c) => {
                 const selected = activeId === c.id;
                 return (
                   <li key={c.id}>
@@ -306,6 +348,18 @@ export default function ChatPage() {
                   </li>
                 );
               })}
+              {hiddenConversations > 0 && (
+                <li className="p-1">
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => setConversationLimit((v) => v + CONVERSATION_RENDER_BATCH)}
+                  >
+                    Arată încă {Math.min(hiddenConversations, CONVERSATION_RENDER_BATCH)}
+                  </Button>
+                </li>
+              )}
             </ul>
           )}
         </div>
@@ -357,13 +411,32 @@ export default function ChatPage() {
             </header>
 
             <div ref={scrollerRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-3 min-h-0">
-              {(messages.data ?? []).length === 0 && (
+              {allMessages.length === 0 && (
                 <p className="text-xs text-muted-foreground text-center py-10">
                   Începe conversația. Scrie un mesaj sau folosește @bot pentru a crea un ticket.
                 </p>
               )}
-              {(messages.data ?? []).map((m) => {
-                const mine = m.sender_name === "Tu";
+              {hiddenMessages > 0 && (
+                <div className="flex justify-center">
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => setVisibleMessageCount((v) => v + MESSAGE_RENDER_BATCH)}
+                  >
+                    Încarcă {Math.min(hiddenMessages, MESSAGE_RENDER_BATCH)} mesaje mai vechi
+                  </Button>
+                </div>
+              )}
+              {visibleMessages.map((m) => {
+                const senderName =
+                  m.sender_name?.trim() ||
+                  (myMembershipId && m.sender_id === myMembershipId
+                    ? "Tu"
+                    : `User #${m.sender_id}`);
+                const mine = Boolean(
+                  (myMembershipId && m.sender_id === myMembershipId) ||
+                    senderName.toLowerCase() === "tu"
+                );
                 return (
                   <motion.div
                     key={m.id}
@@ -375,7 +448,7 @@ export default function ChatPage() {
                       mine ? "ml-auto flex-row-reverse" : ""
                     )}
                   >
-                    <Avatar name={m.sender_name} size="xs" />
+                    <Avatar name={senderName} size="xs" />
                     <div className="min-w-0">
                       <p
                         className={cn(
@@ -383,7 +456,7 @@ export default function ChatPage() {
                           mine ? "text-right" : ""
                         )}
                       >
-                        {m.sender_name}
+                        {senderName}
                       </p>
                       <div
                         className={cn(
@@ -526,6 +599,8 @@ export default function ChatPage() {
                       ref={composerRef}
                       contentEditable
                       suppressContentEditableWarning
+                      dir="ltr"
+                      style={{ direction: "ltr", unicodeBidi: "plaintext" }}
                       onInput={(e) => setDraft((e.target as HTMLDivElement).innerHTML)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
@@ -533,12 +608,15 @@ export default function ChatPage() {
                           void handleSend();
                         }
                       }}
-                      dangerouslySetInnerHTML={{ __html: draft || "" }}
                       data-placeholder="Scrie un mesaj... sau @bot creează ticket din asta"
                       className="min-h-[40px] max-h-[180px] overflow-y-auto outline-none [&:empty:before]:content-[attr(data-placeholder)] [&:empty:before]:text-muted-foreground"
                     />
                   </div>
-                  <Button onClick={handleSend} loading={send.isPending}>
+                  <Button
+                    onClick={handleSend}
+                    loading={send.isPending}
+                    disabled={!activeId}
+                  >
                     <Send className="w-4 h-4" />
                   </Button>
                 </div>

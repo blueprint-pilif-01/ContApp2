@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Lock } from "lucide-react";
 import { useExtensions } from "../../hooks/useExtensions";
+import { usePrincipal } from "../../hooks/useMe";
+import { canManageWorkspaceSettings } from "../../lib/access";
 import { EXTENSIONS, type ExtensionKey } from "../../lib/extensions";
 import { Button } from "./Button";
 import { Skeleton } from "./Skeleton";
@@ -22,6 +24,8 @@ interface Props {
  */
 export function RequireExtension({ extension, title, fallback, children }: Props) {
   const { isReady, canUse } = useExtensions();
+  const principal = usePrincipal("user");
+  const canManageSettings = canManageWorkspaceSettings(principal);
   const meta = EXTENSIONS[extension];
 
   if (!isReady) {
@@ -60,12 +64,14 @@ export function RequireExtension({ extension, title, fallback, children }: Props
         <p className="mt-2 text-xs text-muted-foreground">{meta.tierHint}</p>
       )}
       <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-        <Link to="/app/settings?tab=subscription">
-          <Button size="sm">
-            Activează din Setări
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Button>
-        </Link>
+        {canManageSettings && (
+          <Link to="/app/settings?tab=subscription">
+            <Button size="sm">
+              Activează din Setări
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Button>
+          </Link>
+        )}
         <Link to="/app/dashboard">
           <Button size="sm" variant="ghost">
             Înapoi la Dashboard

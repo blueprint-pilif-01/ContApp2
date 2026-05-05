@@ -39,11 +39,12 @@ function unwrapTeamUsers(value: TeamUserDTO[] | { users?: TeamUserDTO[]; data?: 
   return [];
 }
 
-export function useTeamUsers() {
+export function useTeamUsers(enabled = true) {
   return useQuery<TeamUserDTO[]>({
     queryKey: [...TEAM_USERS_KEY, "list"],
     queryFn: async () =>
       unwrapTeamUsers(await api.get<TeamUserDTO[] | { users?: TeamUserDTO[]; data?: TeamUserDTO[] }>("/settings/users")),
+    enabled,
     staleTime: 30_000,
   });
 }

@@ -62,4 +62,3 @@ export async function* suggestPlanForUser(
   const result = `Plan Smart pentru ${userName}: 1) închide prioritățile de azi (${focusItems.slice(0, 2).join(", ")}), 2) rezervă 45 minute pentru follow-up clienți, 3) trimite minimum o solicitare de contract până la ora 16:00.`;
   yield* streamText(result, 11, 32);
 }
-

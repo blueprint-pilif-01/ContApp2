@@ -16,6 +16,7 @@ import {
   useCollectionCreate,
   useCollectionList,
 } from "../../../hooks/useCollection";
+import { useExtensions } from "../../../hooks/useExtensions";
 import { api } from "../../../lib/api";
 import { fmtDate, cn } from "../../../lib/utils";
 import { queryClient } from "../../../lib/queryClient";
@@ -39,6 +40,32 @@ type PlannerEvent = {
   linked_id?: number;
   recurrence?: RecurrenceRule | string | null;
   _recurring_source?: number;
+  _synthetic?: boolean;
+  _source_label?: string;
+};
+
+type Ticket = {
+  id: number;
+  title: string;
+  status: string;
+  due_date?: string | null;
+  due_at?: string | null;
+};
+
+type ContractInvite = {
+  id: number;
+  status: string;
+  expiration_date?: string | null;
+  client_id?: number | null;
+};
+
+type HrLeave = {
+  id: number;
+  user_id: number;
+  leave_type: string;
+  from: string;
+  to: string;
+  status: string;
 };
 
 type LayoutSlot = PlannerEvent & { col: number; totalCols: number };
@@ -95,10 +122,22 @@ function endTime(iso: string, durationMinutes = 60): string {
   return end.toISOString();
 }
 
+function toCalendarIso(value: string | null | undefined, fallbackTime: string): string | null {
+  if (!value) return null;
+  if (value.includes("T")) return new Date(value).toISOString();
+  return new Date(`${value}T${fallbackTime}:00`).toISOString();
+}
+
+function eventOccursOnDay(event: PlannerEvent, key: string): boolean {
+  const start = event.date.slice(0, 10);
+  const end = event.date_end?.slice(0, 10);
+  return key >= start && (!end || key <= end);
+}
+
 function eventsForDay(events: PlannerEvent[], day: Date): PlannerEvent[] {
   const key = day.toISOString().slice(0, 10);
   return events
-    .filter((e) => e.date.slice(0, 10) === key)
+    .filter((e) => eventOccursOnDay(e, key))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
@@ -144,7 +183,30 @@ function layoutOverlap(events: PlannerEvent[]): LayoutSlot[] {
 }
 
 export default function CalendarPage() {
+  const ext = useExtensions();
+  const canLoadTicketing = ext.isReady && ext.canUse("ticketing_pro");
+  const canLoadContracts = ext.isReady && ext.canUse("contracts_pro");
+  const canLoadHr = ext.isReady && ext.canUse("hr_pro");
+
   const events = useCollectionList<PlannerEvent>("planner-events", "/planner/events");
+  const tickets = useCollectionList<Ticket>(
+    "calendar-ticketing",
+    "/ticketing/tickets",
+    "",
+    canLoadTicketing
+  );
+  const invites = useCollectionList<ContractInvite>(
+    "calendar-contract-invites",
+    "/contracts/invites",
+    "",
+    canLoadContracts
+  );
+  const leaves = useCollectionList<HrLeave>(
+    "calendar-hr-leaves",
+    "/hr/leaves",
+    "",
+    canLoadHr
+  );
   const create = useCollectionCreate<object, PlannerEvent>(
     "planner-events",
     "/planner/events"
@@ -172,7 +234,69 @@ export default function CalendarPage() {
   const [newInterval, setNewInterval] = useState(1);
   const [newRecEnd, setNewRecEnd] = useState("");
 
-  const allEvents = events.data ?? [];
+  const allEvents = useMemo<PlannerEvent[]>(() => {
+    const ticketEvents: PlannerEvent[] = (tickets.data ?? [])
+      .filter((ticket) => !["done", "archived"].includes(ticket.status))
+      .flatMap((ticket) => {
+        const date = toCalendarIso(ticket.due_date ?? ticket.due_at, "10:00");
+        if (!date) return [];
+        return [{
+          id: -100_000_000 - ticket.id,
+          title: `Ticket: ${ticket.title}`,
+          date,
+          duration_minutes: 45,
+          category: "task" as const,
+          linked_id: ticket.id,
+          _synthetic: true,
+          _source_label: `Ticket #${ticket.id}`,
+        }];
+      });
+
+    const inviteEvents: PlannerEvent[] = (invites.data ?? [])
+      .filter((invite) => !["signed", "expired", "revoked"].includes(invite.status))
+      .flatMap((invite) => {
+        const date = toCalendarIso(invite.expiration_date, "16:00");
+        if (!date) return [];
+        return [{
+          id: -200_000_000 - invite.id,
+          title: `Deadline contract: invitație #${invite.id}`,
+          date,
+          duration_minutes: 45,
+          category: "contract" as const,
+          linked_id: invite.id,
+          _synthetic: true,
+          _source_label: invite.client_id
+            ? `Invitație #${invite.id} · Client #${invite.client_id}`
+            : `Invitație #${invite.id}`,
+        }];
+      });
+
+    const leaveEvents: PlannerEvent[] = (leaves.data ?? [])
+      .filter((leave) => leave.status !== "rejected")
+      .flatMap((leave) => {
+        const date = toCalendarIso(leave.from, "09:00");
+        const dateEnd = toCalendarIso(leave.to, "17:00") ?? undefined;
+        if (!date) return [];
+        return [{
+          id: -300_000_000 - leave.id,
+          title: `Concediu: ${leave.leave_type}`,
+          date,
+          ...(dateEnd ? { date_end: dateEnd } : {}),
+          duration_minutes: 60,
+          category: "hr_leave" as const,
+          linked_id: leave.id,
+          _synthetic: true,
+          _source_label: `Cerere HR #${leave.id} · User #${leave.user_id} · ${leave.status}`,
+        }];
+      });
+
+    return [
+      ...(events.data ?? []),
+      ...ticketEvents,
+      ...inviteEvents,
+      ...leaveEvents,
+    ];
+  }, [events.data, tickets.data, invites.data, leaves.data]);
 
   const navigateCursor = (delta: number) => {
     if (view === "month") {
@@ -258,7 +382,7 @@ export default function CalendarPage() {
     <div className="space-y-6">
       <PageHeader
         title="Calendar"
-        description="Agenda pe ore. Click pe slot pentru a adăuga un eveniment, sau folosește butonul."
+        description="Agenda pe ore cu evenimente, tickete, deadline-uri de contract și concedii HR."
         actions={
           <>
             <SegmentedControl
@@ -345,17 +469,22 @@ export default function CalendarPage() {
         }
         footer={
           selected && (
-            <div className="flex justify-between items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  remove.mutate(selected.id);
-                  setSelected(null);
-                }}
-                className="text-red-500 hover:bg-red-500/10"
-              >
-                <Trash2 className="w-4 h-4" /> Șterge
-              </Button>
+            <div className={cn(
+              "flex items-center gap-2",
+              selected._synthetic ? "justify-end" : "justify-between"
+            )}>
+              {!selected._synthetic && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    remove.mutate(selected.id);
+                    setSelected(null);
+                  }}
+                  className="text-red-500 hover:bg-red-500/10"
+                >
+                  <Trash2 className="w-4 h-4" /> Șterge
+                </Button>
+              )}
               <Button onClick={() => setSelected(null)}>Închide</Button>
             </div>
           )
@@ -368,9 +497,10 @@ export default function CalendarPage() {
                 {categoryStyles[selected.category].label}
               </Badge>
               <p className="text-sm">
-                {selected.linked_id
+                {selected._source_label ??
+                (selected.linked_id
                   ? `Asociat cu #${selected.linked_id}`
-                  : "Eveniment standalone."}
+                  : "Eveniment standalone.")}
               </p>
               <p className="text-xs text-muted-foreground">
                 Începe la <strong>{fmtTime(selected.date)}</strong> · durează{" "}
@@ -489,7 +619,7 @@ function MonthGrid({
       inMonth,
       key,
       items: allEvents
-        .filter((e) => e.date.slice(0, 10) === key)
+        .filter((e) => eventOccursOnDay(e, key))
         .sort((a, b) => a.date.localeCompare(b.date)),
     };
   });

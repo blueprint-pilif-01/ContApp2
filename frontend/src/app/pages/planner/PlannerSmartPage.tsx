@@ -9,9 +9,11 @@ import {
   RefreshCw,
   Send,
   Sparkles,
+  Sun,
   Target,
 } from "lucide-react";
 import { useCollectionItem, useCollectionList } from "../../../hooks/useCollection";
+import { useExtensions } from "../../../hooks/useExtensions";
 import { usePrincipal } from "../../../hooks/useMe";
 import { Button } from "../../../components/ui/Button";
 import { Avatar } from "../../../components/ui/Avatar";
@@ -21,6 +23,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { ErrorState } from "../../../components/ui/EmptyState";
 import { AIBottomGlow, AIShimmerText, AIThinkingBlob } from "../../../components/ai";
 import { suggestPlanForUser } from "../../../lib/ai";
+import { ticketPriorityLabel, ticketPriorityVariant } from "../../../lib/ticketing";
 import { fmtRelative, cn } from "../../../lib/utils";
 
 type PlannerSmartResponse = {
@@ -32,7 +35,7 @@ type Ticket = {
   id: number;
   title: string;
   status: string;
-  priority: "low" | "medium" | "high";
+  priority: string;
   due_date: string;
   assignee_id: number | null;
 };
@@ -51,6 +54,15 @@ type Invite = {
   client_id: number;
 };
 
+type HrLeave = {
+  id: number;
+  user_id: number;
+  leave_type: string;
+  from: string;
+  to: string;
+  status: string;
+};
+
 const focusIcon: Record<string, typeof Target> = {
   task: ListChecks,
   invite: Send,
@@ -58,29 +70,47 @@ const focusIcon: Record<string, typeof Target> = {
   default: Target,
 };
 
-const priorityVariant: Record<Ticket["priority"], "danger" | "warning" | "neutral"> = {
-  high: "danger",
-  medium: "warning",
-  low: "neutral",
-};
-
 export default function PlannerSmartPage() {
   const me = usePrincipal();
   const navigate = useNavigate();
+  const ext = useExtensions();
+  const canLoadTicketing = ext.isReady && ext.canUse("ticketing_pro");
+  const canLoadContracts = ext.isReady && ext.canUse("contracts_pro");
+  const canLoadHr = ext.isReady && ext.canUse("hr_pro");
   const smart = useCollectionItem<PlannerSmartResponse>(
     "planner-smart",
     "/planner/smart"
   );
-  const tickets = useCollectionList<Ticket>("ticketing", "/ticketing/tickets");
+  const tickets = useCollectionList<Ticket>(
+    "ticketing",
+    "/ticketing/tickets",
+    "",
+    canLoadTicketing
+  );
   const events = useCollectionList<PlannerEvent>("planner-events", "/planner/events");
-  const invites = useCollectionList<Invite>("invites-list", "/contracts/invites");
+  const invites = useCollectionList<Invite>(
+    "invites-list",
+    "/contracts/invites",
+    "",
+    canLoadContracts
+  );
+  const leaves = useCollectionList<HrLeave>(
+    "planner-hr-leaves",
+    "/hr/leaves",
+    "",
+    canLoadHr
+  );
 
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
 
   const regenerate = async () => {
     setLoading(true);
-    const focus = (smart.data?.focus ?? []).map((i) => i.title);
+    const focus = [
+      ...focusItems.map((i) => i.title),
+      ...todayEvents.map((event) => `Calendar: ${event.title}`),
+      ...todayLeaves.map((leave) => `HR: ${leave.leave_type} pentru User #${leave.user_id}`),
+    ];
     setText("");
     for await (const chunk of suggestPlanForUser(me?.first_name ?? "tu", focus)) {
       setText(chunk);
@@ -101,10 +131,18 @@ export default function PlannerSmartPage() {
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
   const todayTickets = (tickets.data ?? [])
-    .filter((t) => t.status !== "done")
+    .filter((t) => !["done", "archived"].includes(t.status))
     .filter((t) => new Date(t.due_date) <= tomorrowStart)
     .sort((a, b) => a.due_date.localeCompare(b.due_date))
     .slice(0, 5);
+  const activeTicketIds = new Set(
+    (tickets.data ?? [])
+      .filter((t) => !["done", "archived"].includes(t.status))
+      .map((t) => t.id)
+  );
+  const focusItems = (smart.data?.focus ?? []).filter(
+    (item) => item.type !== "task" || activeTicketIds.has(item.id)
+  );
 
   const todayEvents = (events.data ?? [])
     .filter((e) => {
@@ -112,6 +150,13 @@ export default function PlannerSmartPage() {
       return d >= todayStart && d < tomorrowStart;
     })
     .sort((a, b) => a.date.localeCompare(b.date));
+
+  const todayLeaves = (leaves.data ?? [])
+    .filter((leave) => leave.status !== "rejected")
+    .filter((leave) => {
+      const todayKey = todayStart.toISOString().slice(0, 10);
+      return leave.from <= todayKey && leave.to >= todayKey;
+    });
 
   const expiringInvites = (invites.data ?? [])
     .filter((i) => i.status !== "signed" && i.status !== "expired")
@@ -227,7 +272,9 @@ export default function PlannerSmartPage() {
                           size="xs"
                         />
                       )}
-                      <Badge variant={priorityVariant[t.priority]}>{t.priority}</Badge>
+                      <Badge variant={ticketPriorityVariant(t.priority)}>
+                        {ticketPriorityLabel(t.priority)}
+                      </Badge>
                     </li>
                   );
                 })}
@@ -321,17 +368,60 @@ export default function PlannerSmartPage() {
             )}
           </section>
 
+          <section className="rounded-2xl border border-border bg-frame">
+            <header className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <h2 className="text-sm font-semibold inline-flex items-center gap-2">
+                <Sun className="w-4 h-4" /> Disponibilitate HR
+              </h2>
+              <Button size="xs" variant="ghost" onClick={() => navigate("/app/hr")}>
+                HR
+              </Button>
+            </header>
+            {!canLoadHr ? (
+              <p className="px-4 py-6 text-sm text-muted-foreground text-center">
+                HR Pro nu este activ pentru workspace.
+              </p>
+            ) : leaves.isLoading ? (
+              <div className="px-4 py-4 space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : todayLeaves.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-muted-foreground text-center">
+                Nicio absență înregistrată azi.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {todayLeaves.map((leave) => (
+                  <li key={leave.id} className="px-4 py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium">
+                        User #{leave.user_id}
+                      </p>
+                      <Badge variant={leave.status === "approved" ? "success" : "warning"}>
+                        {leave.status}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {leave.leave_type} · {leave.from} → {leave.to}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <section className="rounded-2xl border border-border bg-frame p-4">
             <h2 className="text-sm font-semibold inline-flex items-center gap-2 mb-3">
               <Target className="w-4 h-4" /> Focus puncte AI
             </h2>
-            {(smart.data?.focus ?? []).length === 0 ? (
+            {focusItems.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Niciun focus important detectat.
               </p>
             ) : (
               <ul className="space-y-2">
-                {(smart.data?.focus ?? []).map((item) => {
+                {focusItems.map((item) => {
                   const Icon = focusIcon[item.type] ?? focusIcon.default!;
                   return (
                     <li

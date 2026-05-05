@@ -25,6 +25,30 @@ type Template = {
   date_added: string;
 };
 
+const TEMPLATE_PACKS = [
+  {
+    id: "services",
+    name: "Pachet servicii",
+    contract_type: "servicii",
+    description: "Contract general de prestări servicii pentru SME-uri.",
+    fields: ["client_name", "service_scope", "fee", "start_date"],
+  },
+  {
+    id: "consulting",
+    name: "Pachet consultanță",
+    contract_type: "consultanta",
+    description: "Template pentru consultanță, livrabile și termene.",
+    fields: ["client_name", "deliverables", "monthly_retainer", "notice_period"],
+  },
+  {
+    id: "accounting",
+    name: "Pachet contabilitate",
+    contract_type: "contabilitate",
+    description: "Template de colaborare contabilă cu câmpuri fiscale.",
+    fields: ["company_name", "cui", "monthly_fee", "reporting_deadline"],
+  },
+];
+
 const typeColors: Record<string, string> = {
   contabilitate: "from-[color:var(--accent)]/30 to-transparent",
   consultanta: "from-foreground/12 to-transparent",
@@ -53,6 +77,35 @@ export default function TemplatesPage() {
       `${t.name} ${t.contract_type}`.toLowerCase().includes(q)
     );
   }, [templates, query]);
+
+  const createFromPack = (pack: (typeof TEMPLATE_PACKS)[number]) => {
+    create.mutate(
+      {
+        name: pack.name,
+        contract_type: pack.contract_type,
+        content_json: {
+          type: "doc",
+          source: "template_pack",
+          pack_id: pack.id,
+          dynamic_fields: pack.fields,
+          content: [
+            {
+              type: "heading",
+              attrs: { level: 1 },
+              content: [{ type: "text", text: pack.name }],
+            },
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: pack.description }],
+            },
+          ],
+        },
+      },
+      {
+        onSuccess: (tpl) => navigate(`/app/contracts/templates/${tpl.id}/edit`),
+      }
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -85,6 +138,47 @@ export default function TemplatesPage() {
           {filtered.length} șabloane disponibile
         </p>
       </div>
+
+      <section className="rounded-2xl border border-border bg-frame p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-sm font-semibold">Pachete template</h2>
+            <p className="text-xs text-muted-foreground">
+              Pachete de pornire pe industrie; după creare se editează ca orice șablon custom.
+            </p>
+          </div>
+          <Badge variant="neutral">industry packs</Badge>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {TEMPLATE_PACKS.map((pack) => (
+            <article key={pack.id} className="rounded-xl border border-border bg-background p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">{pack.name}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{pack.description}</p>
+                </div>
+                <Badge variant="accent">{pack.contract_type}</Badge>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {pack.fields.map((field) => (
+                  <span key={field} className="text-[10px] rounded-full bg-foreground/5 px-2 py-0.5 text-muted-foreground">
+                    {field}
+                  </span>
+                ))}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-3 w-full"
+                loading={create.isPending}
+                onClick={() => createFromPack(pack)}
+              >
+                <FilePlus2 className="w-4 h-4" /> Folosește pachet
+              </Button>
+            </article>
+          ))}
+        </div>
+      </section>
 
       {filtered.length === 0 ? (
         <div className="rounded-2xl border border-border bg-frame">

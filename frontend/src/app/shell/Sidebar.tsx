@@ -29,6 +29,7 @@ import { queryClient } from "../../lib/queryClient";
 import { Avatar } from "../../components/ui/Avatar";
 import { ExtensionLock } from "../../components/ui/ExtensionLock";
 import type { ExtensionKey } from "../../lib/extensions";
+import { canManageWorkspaceSettings } from "../../lib/access";
 
 interface NavItem {
   label: string;
@@ -38,6 +39,7 @@ interface NavItem {
   badge?: string;
   /** When set, the item is gated by an extension and shows a lock when off. */
   extension?: ExtensionKey;
+  adminOnly?: boolean;
 }
 
 const navGroups: { label?: string; items: NavItem[] }[] = [
@@ -122,18 +124,21 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
         href: "/app/settings/users-roles",
         icon: Users,
         end: false,
+        adminOnly: true,
       },
       {
         label: "Automatizări",
         href: "/app/settings/automations",
         icon: Zap,
         end: false,
+        adminOnly: true,
       },
       {
         label: "Activity Log",
         href: "/app/settings/activity-log",
         icon: Activity,
         end: false,
+        adminOnly: true,
       },
     ],
   },
@@ -155,6 +160,7 @@ export function Sidebar({
   const navigate = useNavigate();
   const location = useLocation();
   const currentSearch = location.search;
+  const canManageSettings = canManageWorkspaceSettings(me);
 
   const isItemActive = (item: NavItem, defaultActive: boolean): boolean => {
     if (!defaultActive) return false;
@@ -192,8 +198,8 @@ export function Sidebar({
       )}
     >
       <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-5 pr-3">
-        <img src="/egeslogolighty.png" alt="" className="h-10 w-auto dark:hidden" />
-        <img src="/egeslogodark.png" alt="" className="hidden h-10 w-auto dark:block" />
+        <img src="/egeslogolighty-nav.png" alt="" className="h-10 w-auto dark:hidden" />
+        <img src="/egeslogodark-nav.png" alt="" className="hidden h-10 w-auto dark:block" />
         <button
           type="button"
           className={cn(
@@ -233,7 +239,10 @@ export function Sidebar({
             <div className="h-full w-[2px] -translate-x-px rounded-full bg-border dark:bg-white/22" />
           </div>
 
-          {navGroups.map((group, gi) => (
+          {navGroups.map((group, gi) => {
+            const items = group.items.filter((item) => !item.adminOnly || canManageSettings);
+            if (items.length === 0) return null;
+            return (
             <div key={gi} className={gi > 0 ? "mt-2 pt-2.5" : ""}>
               {group.label && (
                 <p className="mb-1.5 pl-9 pr-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/95">
@@ -241,7 +250,7 @@ export function Sidebar({
                 </p>
               )}
               <ul className="mr-1 space-y-0.5">
-                {group.items.map((item) => {
+                {items.map((item) => {
                   const locked = !!item.extension && ext.isReady && !ext.canUse(item.extension);
                   return (
                     <li key={item.href}>
@@ -352,7 +361,8 @@ export function Sidebar({
                 })}
               </ul>
             </div>
-          ))}
+            );
+          })}
         </div>
       </nav>
 
