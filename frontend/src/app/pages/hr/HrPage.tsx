@@ -14,6 +14,7 @@ import { PageHeader } from "../../../components/ui/PageHeader";
 import { Tabs, TabPanel } from "../../../components/ui/Tabs";
 import { Button } from "../../../components/ui/Button";
 import { Input, Textarea } from "../../../components/ui/Input";
+import { Select } from "../../../components/ui/Select";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Badge } from "../../../components/ui/Badge";
@@ -27,6 +28,12 @@ import {
   useCollectionList,
 } from "../../../hooks/useCollection";
 import { usePrincipal } from "../../../hooks/useMe";
+import {
+  teamUserDisplayName,
+  useTeamUsers,
+  type TeamUserDTO,
+} from "../../../hooks/useTeamUsers";
+import { canManageHR } from "../../../lib/access";
 import { fmtDate, fmtRelative } from "../../../lib/utils";
 
 type HrHour = { id: number; user_id: number; date: string; hours: number; note: string };
@@ -47,6 +54,32 @@ type HrReview = {
   summary: string;
   date_added: string;
 };
+
+function visibleForHRAccess<T extends { user_id: number }>(
+  rows: T[],
+  myId: number,
+  canManage: boolean
+): T[] {
+  return canManage ? rows : rows.filter((row) => row.user_id === myId);
+}
+
+function employeeName(users: TeamUserDTO[] | undefined, id: number, myId?: number): string {
+  if (myId && id === myId) return "Tu";
+  const user = users?.find((u) => u.id === id);
+  return user ? teamUserDisplayName(user) : `User #${id}`;
+}
+
+function employeeOptions(users: TeamUserDTO[] | undefined, myId: number) {
+  const rows = users ?? [];
+  const options = rows.map((user) => ({
+    value: String(user.id),
+    label: teamUserDisplayName(user),
+  }));
+  if (myId > 0 && !options.some((option) => option.value === String(myId))) {
+    options.unshift({ value: String(myId), label: "Eu" });
+  }
+  return options;
+}
 
 export default function HrPage() {
   const [active, setActive] = useState("hours");
@@ -85,14 +118,19 @@ export default function HrPage() {
 
 function HoursTab() {
   const principal = usePrincipal();
-  const myId = principal?.kind === "user" ? principal.id : 0;
+  const myId = principal?.kind === "user" ? (principal.membership_id ?? 0) : 0;
+  const canManage = canManageHR(principal);
+  const teamUsers = useTeamUsers(canManage);
   const list = useCollectionList<HrHour>("hr-hours", "/hr/hours");
   const create = useCollectionCreate<object, HrHour>("hr-hours", "/hr/hours");
   const [open, setOpen] = useState(false);
   const [hours, setHours] = useState("8");
   const [note, setNote] = useState("");
+  const [selectedUser, setSelectedUser] = useState("");
+  const rows = visibleForHRAccess(list.data ?? [], myId, canManage);
+  const userOptions = employeeOptions(teamUsers.data, myId);
 
-  const totalThisMonth = (list.data ?? [])
+  const totalThisMonth = rows
     .filter((h) => new Date(h.date).getMonth() === new Date().getMonth())
     .reduce((acc, h) => acc + h.hours, 0);
 
@@ -112,7 +150,7 @@ function HoursTab() {
           <div className="p-2 flex items-center justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Înregistrări</p>
-              <p className="text-2xl font-semibold mt-0.5">{(list.data ?? []).length}</p>
+              <p className="text-2xl font-semibold mt-0.5">{rows.length}</p>
             </div>
             <ClipboardList className="w-5 h-5 text-foreground/40" />
           </div>
@@ -130,7 +168,7 @@ function HoursTab() {
 
       <SectionCard
         title="Istoric pontaj"
-        description="Înregistrările tale recente."
+        description={canManage ? "Înregistrările recente ale echipei." : "Înregistrările tale recente."}
         actions={
           <Button onClick={() => setOpen(true)}>
             <Plus className="w-4 h-4" /> Înregistrează
@@ -141,18 +179,21 @@ function HoursTab() {
           <SkeletonList rows={3} />
         ) : list.isError ? (
           <ErrorState onRetry={() => list.refetch()} />
-        ) : (list.data ?? []).length === 0 ? (
+        ) : rows.length === 0 ? (
           <EmptyArt icon={Clock} title="Niciun pontaj" description="Înregistrează prima zi de muncă." />
         ) : (
           <ul className="divide-y divide-border -mx-2">
-            {(list.data ?? []).map((row) => (
+            {rows.map((row) => (
               <li key={row.id} className="px-2 py-3 flex items-center gap-3">
                 <span className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center text-sm font-semibold">
                   {row.hours}h
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{fmtDate(row.date)}</p>
-                  <p className="text-xs text-muted-foreground">{row.note || "Fără notă"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {canManage ? `${employeeName(teamUsers.data, row.user_id, myId)} · ` : ""}
+                    {row.note || "Fără notă"}
+                  </p>
                 </div>
                 <Badge variant="success">Înregistrat</Badge>
               </li>
@@ -174,8 +215,12 @@ function HoursTab() {
             <Button
               loading={create.isPending}
               onClick={() => {
+                const targetUserId =
+                  canManage && Number(selectedUser || myId) > 0
+                    ? Number(selectedUser || myId)
+                    : myId;
                 create.mutate({
-                  user_id: myId,
+                  user_id: targetUserId,
                   date: new Date().toISOString().slice(0, 10),
                   hours: Number(hours) || 0,
                   note,
@@ -189,6 +234,14 @@ function HoursTab() {
           </div>
         }
       >
+        {canManage && (
+          <Select
+            label="Angajat"
+            value={selectedUser || String(myId)}
+            onChange={(e) => setSelectedUser(e.target.value)}
+            options={userOptions}
+          />
+        )}
         <Input label="Ore" type="number" value={hours} onChange={(e) => setHours(e.target.value)} />
         <Textarea label="Notă" value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
       </Drawer>
@@ -198,7 +251,9 @@ function HoursTab() {
 
 function LeavesTab() {
   const principal = usePrincipal();
-  const myId = principal?.kind === "user" ? principal.id : 0;
+  const myId = principal?.kind === "user" ? (principal.membership_id ?? 0) : 0;
+  const canManage = canManageHR(principal);
+  const teamUsers = useTeamUsers(canManage);
   const list = useCollectionList<HrLeave>("hr-leaves", "/hr/leaves");
   const create = useCollectionCreate<object, HrLeave>("hr-leaves", "/hr/leaves");
   const [open, setOpen] = useState(false);
@@ -206,6 +261,9 @@ function LeavesTab() {
   const [from, setFrom] = useState(new Date().toISOString().slice(0, 10));
   const [to, setTo] = useState(new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10));
   const [note, setNote] = useState("");
+  const [selectedUser, setSelectedUser] = useState("");
+  const rows = visibleForHRAccess(list.data ?? [], myId, canManage);
+  const userOptions = employeeOptions(teamUsers.data, myId);
 
   const groups: HrLeave["status"][] = ["pending", "approved", "rejected"];
 
@@ -230,7 +288,7 @@ function LeavesTab() {
       {!list.isLoading && !list.isError && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {groups.map((g) => {
-          const items = (list.data ?? []).filter((l) => l.status === g);
+          const items = rows.filter((l) => l.status === g);
           return (
             <SectionCard
               key={g}
@@ -265,6 +323,11 @@ function LeavesTab() {
                     <p className="text-xs text-muted-foreground">
                       {fmtDate(leave.from)} → {fmtDate(leave.to)}
                     </p>
+                    {canManage && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {employeeName(teamUsers.data, leave.user_id, myId)}
+                      </p>
+                    )}
                     {leave.note && (
                       <p className="text-xs text-muted-foreground mt-1">{leave.note}</p>
                     )}
@@ -295,8 +358,12 @@ function LeavesTab() {
             <Button
               loading={create.isPending}
               onClick={() => {
+                const targetUserId =
+                  canManage && Number(selectedUser || myId) > 0
+                    ? Number(selectedUser || myId)
+                    : myId;
                 create.mutate({
-                  user_id: myId,
+                  user_id: targetUserId,
                   leave_type: type,
                   from,
                   to,
@@ -312,6 +379,14 @@ function LeavesTab() {
           </div>
         }
       >
+        {canManage && (
+          <Select
+            label="Angajat"
+            value={selectedUser || String(myId)}
+            onChange={(e) => setSelectedUser(e.target.value)}
+            options={userOptions}
+          />
+        )}
         <SegmentedControl
           value={type}
           onChange={setType}
@@ -334,38 +409,53 @@ function LeavesTab() {
 
 function ReviewsTab() {
   const principal = usePrincipal();
-  const myId = principal?.kind === "user" ? principal.id : 0;
+  const myId = principal?.kind === "user" ? (principal.membership_id ?? 0) : 0;
+  const canManage = canManageHR(principal);
+  const teamUsers = useTeamUsers(canManage);
   const list = useCollectionList<HrReview>("hr-reviews", "/hr/reviews");
   const create = useCollectionCreate<object, HrReview>("hr-reviews", "/hr/reviews");
   const [open, setOpen] = useState(false);
   const [score, setScore] = useState(4);
   const [summary, setSummary] = useState("");
   const [reviewedUser, setReviewedUser] = useState("");
+  const rows = visibleForHRAccess(list.data ?? [], myId, canManage);
+  const userOptions = employeeOptions(teamUsers.data, myId);
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        <Button onClick={() => setOpen(true)}>
-          <Plus className="w-4 h-4" /> Review nou
-        </Button>
-      </div>
-      <SectionCard title="Review-uri ale echipei" description="Evaluări recente cu scor și sumar.">
+      {canManage && (
+        <div className="flex items-center justify-end">
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="w-4 h-4" /> Review nou
+          </Button>
+        </div>
+      )}
+      <SectionCard
+        title={canManage ? "Review-uri ale echipei" : "Review-urile mele"}
+        description="Evaluări recente cu scor și sumar."
+      >
         {list.isLoading ? (
           <SkeletonList rows={3} />
         ) : list.isError ? (
           <ErrorState onRetry={() => list.refetch()} />
-        ) : (list.data ?? []).length === 0 ? (
-          <EmptyArt icon={Star} title="Niciun review" description="Salvează primul review pentru un coleg." />
+        ) : rows.length === 0 ? (
+          <EmptyArt
+            icon={Star}
+            title="Niciun review"
+            description={canManage ? "Salvează primul review pentru un coleg." : "Nu ai încă review-uri."}
+          />
         ) : (
           <ol className="relative border-l border-border pl-5 space-y-4">
-            {(list.data ?? []).map((review) => (
+            {rows.map((review) => (
               <li key={review.id} className="relative">
                 <span className="absolute -left-[27px] top-1 w-3 h-3 rounded-full bg-foreground" />
                 <div className="rounded-2xl border border-border bg-frame p-4">
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
-                      <Avatar name={`User ${review.user_id}`} size="xs" />
-                      <p className="text-sm font-semibold">User #{review.user_id}</p>
+                      <Avatar name={employeeName(teamUsers.data, review.user_id, myId)} size="xs" />
+                      <p className="text-sm font-semibold">
+                        {employeeName(teamUsers.data, review.user_id, myId)}
+                      </p>
                     </div>
                     <Badge variant="accent">{review.score} / 5</Badge>
                   </div>
@@ -392,7 +482,7 @@ function ReviewsTab() {
             <Button
               loading={create.isPending}
               onClick={() => {
-                const targetId = Number.parseInt(reviewedUser, 10);
+                const targetId = Number.parseInt(reviewedUser || String(myId), 10);
                 if (!Number.isFinite(targetId) || targetId <= 0) return;
                 create.mutate({
                   user_id: targetId,
@@ -410,13 +500,11 @@ function ReviewsTab() {
           </div>
         }
       >
-        <Input
-          label="ID coleg evaluat"
-          type="number"
-          value={reviewedUser}
+        <Select
+          label="Angajat evaluat"
+          value={reviewedUser || String(myId)}
           onChange={(e) => setReviewedUser(e.target.value)}
-          placeholder="ex: 2"
-          hint="ID-ul utilizatorului din echipă (vezi Settings → Users)."
+          options={userOptions}
         />
         <div className="flex items-center gap-2">
           {[1, 2, 3, 4, 5].map((s) => (
@@ -437,52 +525,74 @@ function ReviewsTab() {
 
 function CertificatesTab() {
   const principal = usePrincipal();
-  const myId = principal?.kind === "user" ? principal.id : 0;
+  const myId = principal?.kind === "user" ? (principal.membership_id ?? 0) : 0;
+  const canManage = canManageHR(principal);
+  const teamUsers = useTeamUsers(canManage);
+  const [selectedUser, setSelectedUser] = useState("");
+  const userOptions = employeeOptions(teamUsers.data, myId);
   const create = useCollectionCreate<object, { request_id: number }>(
     "hr-certificates",
     "/hr/certificates"
   );
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {[
-        {
-          title: "Adeverință angajat",
-          description: "Pentru bancă, autorități sau cazare. Generare instant.",
-          type: "employee_certificate",
-          accent: "from-[color:var(--accent)]/25 to-transparent",
-        },
-        {
-          title: "Adeverință venit",
-          description: "Cu venitul calculat pe ultimele 6 luni.",
-          type: "income_certificate",
-          accent: "from-foreground/8 to-transparent",
-        },
-      ].map((card) => (
-        <article
-          key={card.type}
-          className={`relative overflow-hidden rounded-2xl border border-border bg-frame p-5`}
-        >
-          <div className={`absolute inset-0 bg-gradient-to-br ${card.accent} pointer-events-none`} />
-          <div className="relative">
-            <FileSignature className="w-6 h-6 text-foreground/70 mb-2" />
-            <h3 className="text-base font-semibold">{card.title}</h3>
-            <p className="text-sm text-muted-foreground mt-1">{card.description}</p>
-            <Button
-              className="mt-4"
-              size="sm"
-              onClick={() => create.mutate({ type: card.type, user_id: myId })}
-            >
-              Solicită acum
-            </Button>
-            {create.data && (
-              <p className="text-xs text-muted-foreground mt-3">
-                Cerere înregistrată #{create.data.request_id}.
-              </p>
-            )}
-          </div>
-        </article>
-      ))}
+    <div className="space-y-4">
+      {canManage && (
+        <div className="max-w-sm">
+          <Select
+            label="Angajat"
+            value={selectedUser || String(myId)}
+            onChange={(e) => setSelectedUser(e.target.value)}
+            options={userOptions}
+          />
+        </div>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {[
+          {
+            title: "Adeverință angajat",
+            description: "Pentru bancă, autorități sau cazare. Generare instant.",
+            type: "employee_certificate",
+            accent: "from-[color:var(--accent)]/25 to-transparent",
+          },
+          {
+            title: "Adeverință venit",
+            description: "Cu venitul calculat pe ultimele 6 luni.",
+            type: "income_certificate",
+            accent: "from-foreground/8 to-transparent",
+          },
+        ].map((card) => (
+          <article
+            key={card.type}
+            className={`relative overflow-hidden rounded-2xl border border-border bg-frame p-5`}
+          >
+            <div className={`absolute inset-0 bg-gradient-to-br ${card.accent} pointer-events-none`} />
+            <div className="relative">
+              <FileSignature className="w-6 h-6 text-foreground/70 mb-2" />
+              <h3 className="text-base font-semibold">{card.title}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{card.description}</p>
+              <Button
+                className="mt-4"
+                size="sm"
+                onClick={() => {
+                  const targetUserId =
+                    canManage && Number(selectedUser || myId) > 0
+                      ? Number(selectedUser || myId)
+                      : myId;
+                  create.mutate({ type: card.type, user_id: targetUserId });
+                }}
+              >
+                Solicită acum
+              </Button>
+              {create.data && (
+                <p className="text-xs text-muted-foreground mt-3">
+                  Cerere înregistrată #{create.data.request_id}.
+                </p>
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
     </div>
   );
 }

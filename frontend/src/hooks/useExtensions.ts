@@ -1,10 +1,9 @@
 /**
  * Extension state hook: reads the active extension map for the current
- * organisation and exposes a backend-backed toggle when available.
+ * organisation. Production writes are managed from the platform admin surface.
  *
  * Endpoints:
  *   GET  /organisations/me/extensions      → { extensions: { ...key: bool } }
- *   PUT  /organisations/me/extensions      → { key, enabled }
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -40,6 +39,7 @@ function normalize(raw: Partial<ExtensionState>): ExtensionState {
  */
 export function useExtensions() {
   const qc = useQueryClient();
+  const canToggleSelfService = false;
 
   const query = useQuery<ExtensionState>({
     queryKey: EXTENSIONS_KEY,
@@ -55,12 +55,8 @@ export function useExtensions() {
     unknown,
     { key: ExtensionKey; enabled: boolean }
   >({
-    mutationFn: async ({ key, enabled }) => {
-      const res = await api.put<ExtensionsResponse>(
-        "/organisations/me/extensions",
-        { key, enabled }
-      );
-      return normalize(res?.extensions ?? {});
+    mutationFn: async () => {
+      throw new Error("Self-service extension toggles are managed by platform admins.");
     },
     onSuccess: (next) => {
       qc.setQueryData(EXTENSIONS_KEY, next);
@@ -82,6 +78,7 @@ export function useExtensions() {
     isLoading: query.isLoading,
     isError: query.isError,
     canUse,
+    canToggleSelfService,
     toggle: (key: ExtensionKey, enabled: boolean) =>
       toggleMutation.mutateAsync({ key, enabled }),
     isToggling: toggleMutation.isPending,

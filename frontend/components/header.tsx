@@ -51,12 +51,12 @@ export function Header(): ReactNode {
       <div className="flex h-20 items-center justify-between px-4 py-2 max-[850px]:h-[4.25rem] max-[850px]:px-6 max-[850px]:py-2">
         <Link to="/" className="flex shrink-0 items-center gap-2 ml-4 max-[850px]:ml-0" aria-label="ContApp acasă">
           <img
-            src="/egeslogolighty.png"
+            src="/egeslogolighty-nav.png"
             alt=""
             className="h-12 w-auto max-[850px]:h-10 dark:hidden"
           />
           <img
-            src="/egeslogodark.png"
+            src="/egeslogodark-nav.png"
             alt=""
             className="hidden h-12 w-auto max-[850px]:h-10 dark:block"
           />

@@ -23,7 +23,7 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    ignores: ["dist/**", "node_modules/**"],
+    ignores: ["dist/**", ".next/**", "node_modules/**"],
   },
 ]);
 

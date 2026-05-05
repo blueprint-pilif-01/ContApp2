@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Bell, Menu, Moon, Sun, CheckCheck, X } from "lucide-react";
+import { Bell, Building2, Menu, Moon, Sun, CheckCheck, X } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Breadcrumbs, APP_SEGMENTS } from "../../components/ui/Breadcrumbs";
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotifications,
 } from "../../hooks/useNotifications";
+import { switchOrganisation, usePrincipal } from "../../hooks/useMe";
 import { cn, fmtRelative } from "../../lib/utils";
 
 function useIsMounted() {
@@ -32,9 +34,17 @@ export function Topbar({
   const notifications = useNotifications();
   const markAllRead = useMarkAllNotificationsRead();
   const markOneRead = useMarkNotificationRead();
+  const principal = usePrincipal("user");
+  const queryClient = useQueryClient();
 
   const [bellOpen, setBellOpen] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
+  const workspaceSwitch = useMutation({
+    mutationFn: switchOrganisation,
+    onSuccess: () => {
+      void queryClient.invalidateQueries();
+    },
+  });
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -48,6 +58,9 @@ export function Topbar({
 
   const inbox = notifications.data ?? [];
   const unread = inbox.filter((n) => !n.read_at).length;
+  const userPrincipal = principal?.kind === "user" ? principal : null;
+  const workspaces = userPrincipal?.workspaces ?? [];
+  const canSwitchWorkspace = workspaces.length > 1;
 
   return (
     <header className="h-14 bg-frame border-b border-border flex items-center justify-between px-4 sm:px-6 gap-3 shrink-0 sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-frame/80">
@@ -80,6 +93,38 @@ export function Topbar({
       </div>
 
       <div className="flex items-center gap-2">
+        {canSwitchWorkspace && (
+          <label className="hidden min-w-0 max-w-[230px] md:flex items-center gap-2 rounded-xl border border-border bg-background/60 px-2 py-1.5">
+            <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="sr-only">Workspace</span>
+            <select
+              value={userPrincipal?.organisation_id ?? ""}
+              onChange={(e) => {
+                const organisationId = Number(e.target.value);
+                if (
+                  Number.isFinite(organisationId) &&
+                  organisationId > 0 &&
+                  organisationId !== userPrincipal?.organisation_id
+                ) {
+                  workspaceSwitch.mutate(organisationId);
+                }
+              }}
+              disabled={workspaceSwitch.isPending}
+              className="min-w-0 max-w-[180px] bg-transparent text-xs font-medium text-foreground outline-none disabled:opacity-60"
+              aria-label="Schimbă organizația activă"
+            >
+              {workspaces.map((workspace) => (
+                <option
+                  key={workspace.organisation_id}
+                  value={workspace.organisation_id}
+                >
+                  {workspace.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
         {mounted && (
           <button
             type="button"

@@ -28,12 +28,12 @@ export function AuthShell({ children }: { children: ReactNode }) {
           aria-label="ContApp · pagina principală"
         >
           <img
-            src="/egeslogolighty.png"
+            src="/egeslogolighty-nav.png"
             alt=""
             className="h-16 max-[390px]:h-14 w-auto transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-[1.03] group-active:scale-[0.985] dark:hidden"
           />
           <img
-            src="/egeslogodark.png"
+            src="/egeslogodark-nav.png"
             alt=""
             className="hidden h-16 max-[390px]:h-14 w-auto transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-[1.03] group-active:scale-[0.985] dark:block"
           />

@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { logout, usePrincipal } from "../../../hooks/useMe";
 import { useUpdateTeamUser } from "../../../hooks/useTeamUsers";
-import { useCreateSignature } from "../../../hooks/useSignatures";
 import { useExtensions } from "../../../hooks/useExtensions";
 import { useSubscription } from "../../../hooks/useSubscription";
 import { Button } from "../../../components/ui/Button";
@@ -30,6 +29,8 @@ import { PageHeader } from "../../../components/ui/PageHeader";
 import { SignatureCanvas } from "../../../components/SignatureCanvas";
 import { useToast } from "../../../components/ui/Toast";
 import { isApiError } from "../../../lib/api";
+import { getSession, setSession } from "../../../lib/session";
+import { canManageWorkspaceSettings } from "../../../lib/access";
 import {
   EXTENSIONS,
   EXTENSION_KEYS,
@@ -50,6 +51,8 @@ const SECTIONS: { id: SectionId; label: string; icon: typeof User; description: 
 
 export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const principal = usePrincipal("user");
+  const canManageSettings = canManageWorkspaceSettings(principal);
   const tabParam = searchParams.get("tab");
   const initial: SectionId =
     tabParam === "subscription" || tabParam === "security" ||
@@ -58,6 +61,17 @@ export default function SettingsPage() {
       : "profile";
   const [active, setActive] = useState<SectionId>(initial);
   const navigate = useNavigate();
+  const visibleSections = canManageSettings
+    ? SECTIONS
+    : SECTIONS.filter((section) =>
+        ["profile", "security", "signature"].includes(section.id)
+      );
+
+  useEffect(() => {
+    if (!visibleSections.some((section) => section.id === active)) {
+      setActive("profile");
+    }
+  }, [active, visibleSections]);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
@@ -73,13 +87,17 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Setări"
-        description="Cont, securitate, abonament, semnătură și echipă."
+        description={
+          canManageSettings
+            ? "Cont, securitate, abonament, semnătură și echipă."
+            : "Cont, securitate și semnătura ta digitală."
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
         <aside className="rounded-2xl border border-border bg-frame overflow-hidden">
           <ul>
-            {SECTIONS.map((s) => {
+            {visibleSections.map((s) => {
               const isActive = active === s.id;
               return (
                 <li key={s.id} className="border-b border-border last:border-b-0">
@@ -120,9 +138,9 @@ export default function SettingsPage() {
         </aside>
 
         <section>
-          {active === "profile" && <ProfileSection />}
+          {active === "profile" && <ProfileSection canManageWorkspace={canManageSettings} />}
           {active === "security" && <SecuritySection />}
-          {active === "subscription" && <SubscriptionSection />}
+          {active === "subscription" && canManageSettings && <SubscriptionSection />}
           {active === "signature" && <SignatureSection />}
         </section>
       </div>
@@ -132,12 +150,12 @@ export default function SettingsPage() {
 
 /* ───────── Profile ───────── */
 
-function ProfileSection() {
+function ProfileSection({ canManageWorkspace }: { canManageWorkspace: boolean }) {
   const toast = useToast();
   const principal = usePrincipal();
   const navigate = useNavigate();
   const isUser = principal?.kind === "user";
-  const userId = isUser ? principal.id : 0;
+  const userId = isUser ? (principal.membership_id ?? 0) : 0;
   const update = useUpdateTeamUser(userId);
 
   const [firstName, setFirstName] = useState("");
@@ -161,20 +179,50 @@ function ProfileSection() {
       toast.info("Editarea profilului nu este disponibilă în acest cont.");
       return;
     }
+    if (!canManageWorkspace) {
+      toast.info("Datele de profil sunt gestionate de owner sau HR.");
+      return;
+    }
+    if (!userId) {
+      toast.error("Profilul nu poate fi salvat fără un workspace activ.");
+      return;
+    }
+    const nextFirstName = firstName.trim();
+    const nextLastName = lastName.trim();
+    const nextEmail = email.trim();
+    const nextPhone = phone.trim();
+    const nextName = `${nextFirstName} ${nextLastName}`.trim() || nextEmail;
     update.mutate(
       {
         organisation_id: principal.organisation_id ?? 0,
         type: principal.type,
-        first_name: firstName,
-        last_name: lastName,
-        email,
-        phone,
+        first_name: nextFirstName,
+        last_name: nextLastName,
+        email: nextEmail,
+        phone: nextPhone,
         password: "",
         status: principal.status,
-        signature_id: 0,
       },
       {
-        onSuccess: () => toast.success("Profil actualizat."),
+        onSuccess: () => {
+          const session = getSession("user");
+          if (session?.principal.kind === "user") {
+            setSession(
+              {
+                ...session,
+                principal: {
+                  ...session.principal,
+                  first_name: nextFirstName,
+                  last_name: nextLastName,
+                  email: nextEmail,
+                  phone: nextPhone,
+                },
+              },
+              "user"
+            );
+          }
+          toast.success("Profil actualizat.");
+        },
         onError: (e) => toast.error(isApiError(e) ? e.message : "Eroare la salvare."),
       }
     );
@@ -211,8 +259,18 @@ function ProfileSection() {
       >
         <h2 className="text-sm font-semibold tracking-tight">Date personale</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Input label="Prenume" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-          <Input label="Nume" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          <Input
+            label="Prenume"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            disabled={!canManageWorkspace}
+          />
+          <Input
+            label="Nume"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            disabled={!canManageWorkspace}
+          />
         </div>
         <Input
           label="Email"
@@ -220,15 +278,17 @@ function ProfileSection() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           leadingIcon={<Mail className="w-4 h-4" />}
+          disabled={!canManageWorkspace}
         />
         <Input
           label="Telefon"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           leadingIcon={<Phone className="w-4 h-4" />}
+          disabled={!canManageWorkspace}
         />
         <div className="pt-2 flex justify-end">
-          <Button type="submit" loading={update.isPending} size="sm">
+          <Button type="submit" loading={update.isPending} size="sm" disabled={!canManageWorkspace}>
             <Check className="w-4 h-4" /> Salvează
           </Button>
         </div>
@@ -376,6 +436,10 @@ function SubscriptionSection() {
     : [];
 
   const handleToggle = async (key: ExtensionKey, next: boolean) => {
+    if (!ext.canToggleSelfService) {
+      toast.info("Extensiile se activează din Admin Platform sau prin abonament.");
+      return;
+    }
     try {
       await ext.toggle(key, next);
       toast.success(
@@ -444,12 +508,12 @@ function SubscriptionSection() {
           <div>
             <h2 className="text-sm font-semibold tracking-tight">Extensii plătite</h2>
             <p className="text-xs text-muted-foreground mt-1">
-              Mod dev — toggle local pentru a previzualiza UI-ul de gating. În producție
-              acest panou afișează doar status-ul, iar activarea trece prin Stripe.
+              Statusul extensiilor active pentru workspace. Activarea este
+              administrată din Admin Platform sau prin abonament.
             </p>
           </div>
           <Badge variant="warning" className="shrink-0 inline-flex items-center gap-1">
-            <Lock className="w-3 h-3" /> dev
+            <Lock className="w-3 h-3" /> admin
           </Badge>
         </div>
         <div className="space-y-2">
@@ -457,7 +521,11 @@ function SubscriptionSection() {
             const meta = EXTENSIONS[key];
             const Icon = meta.icon;
             const enabled = ext.canUse(key);
-            const disabled = !meta.available || ext.isToggling || !ext.isReady;
+            const disabled =
+              !meta.available ||
+              ext.isToggling ||
+              !ext.isReady ||
+              !ext.canToggleSelfService;
             return (
               <div
                 key={key}
@@ -520,29 +588,40 @@ function SignatureSection() {
   const [drawMode, setDrawMode] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [sigName, setSigName] = useState("Semnătura mea");
-  const create = useCreateSignature();
+  const [saving, setSaving] = useState(false);
 
   const saveSignature = () => {
     if (!sigName.trim()) {
       toast.error("Dă un nume semnăturii.");
       return;
     }
-    create.mutate(
-      {
-        name: sigName,
-        file_id: 0,
-        owner_id: principal?.kind === "user" ? principal.id : 0,
-      },
-      {
-        onSuccess: () => {
-          toast.success("Semnătură salvată.");
-          setDrawMode(false);
-          setPending(null);
-        },
-        onError: (e) =>
-          toast.error(isApiError(e) ? e.message : "Eroare la salvare."),
-      }
-    );
+    if (!pending) {
+      toast.error("Adaugă o semnătură înainte de salvare.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const ownerId =
+        principal?.kind === "user"
+          ? (principal.membership_id ?? principal.id)
+          : 0;
+      localStorage.setItem(
+        "contapp_local_signature",
+        JSON.stringify({
+          name: sigName.trim(),
+          owner_id: ownerId,
+          image: pending,
+          updated_at: new Date().toISOString(),
+        })
+      );
+      toast.success("Semnătură pregătită local.");
+      setDrawMode(false);
+      setPending(null);
+    } catch {
+      toast.error("Semnătura nu a putut fi salvată în browser.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -624,7 +703,7 @@ function SignatureSection() {
             size="sm"
             onClick={saveSignature}
             disabled={!pending}
-            loading={create.isPending}
+            loading={saving}
           >
             Salvează semnătura
           </Button>

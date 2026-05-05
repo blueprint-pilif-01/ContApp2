@@ -461,8 +461,8 @@ export default function InvitesPage() {
                 {activeInvite.remarks || "Fără observații pentru această solicitare."}
               </p>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" loading={send.isPending} onClick={() => sendInvite(activeInvite, "Solicitare retrimisă.")}>
-                  <RefreshCw className="w-4 h-4" /> Retrimite
+                <Button variant="outline" loading={send.isPending} onClick={() => sendInvite(activeInvite, "Reminder trimis.")}>
+                  <RefreshCw className="w-4 h-4" /> Reminder manual
                 </Button>
                 <Button variant="outline" onClick={() => duplicateInvite(activeInvite)}>
                   <Copy className="w-4 h-4" /> Duplică

@@ -10,8 +10,12 @@ import {
 import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { PageHeader } from "../../../components/ui/PageHeader";
-import { useCollectionList } from "../../../hooks/useCollection";
 import { useExtensions } from "../../../hooks/useExtensions";
+import {
+  useLegislationPreferences,
+  useLegislationUpdates,
+  useUpdateLegislationPreferences,
+} from "../../../hooks/useLegislation";
 import { useToast } from "../../../components/ui/Toast";
 import {
   AIResultCard,
@@ -27,9 +31,12 @@ type LegislationItem = {
   category: string;
   caen_codes: string[];
   source: string;
+  source_url: string;
   published_at: string;
   summary: string;
 };
+
+type NotifyMode = "instant" | "daily" | "weekly" | "never";
 
 const TOPICS = [
   { id: "fiscal", label: "Fiscal" },
@@ -46,13 +53,25 @@ const CAEN_OPTIONS = [
   { code: "4719", label: "Retail" },
 ];
 
+const NOTIFY_MODES: Array<{ id: NotifyMode; label: string }> = [
+  { id: "instant", label: "Instant" },
+  { id: "daily", label: "Daily" },
+  { id: "weekly", label: "Weekly" },
+  { id: "never", label: "Never" },
+];
+
 export default function LegislationPage() {
   const ext = useExtensions();
   const toast = useToast();
   const aiAvailable = ext.canUse("ai_assistant");
+  const prefs = useLegislationPreferences();
+  const updatePrefs = useUpdateLegislationPreferences();
   const [topics, setTopics] = useState<string[]>([]);
   const [caenSelected, setCaenSelected] = useState<string[]>([]);
   const [query, setQuery] = useState("");
+  const [notifyMode, setNotifyMode] = useState<NotifyMode>(
+    prefs.data.notify_mode
+  );
 
   const [activeArticle, setActiveArticle] = useState<LegislationItem | null>(null);
   const [summary, setSummary] = useState("");
@@ -60,14 +79,25 @@ export default function LegislationPage() {
   const [digest, setDigest] = useState("");
   const [digestBusy, setDigestBusy] = useState(false);
 
-  const news = useCollectionList<LegislationItem>(
-    "legislation-news",
-    "/legislation/updates"
+  const updates = useLegislationUpdates();
+  const news = useMemo<LegislationItem[]>(
+    () =>
+      updates.data.updates.map((item, index) => ({
+        id: Number(item.id) || index + 1,
+        title: item.title,
+        category: item.category_code,
+        caen_codes: item.caen_codes ?? [],
+        source: item.source_name,
+        source_url: item.source_url,
+        published_at: item.published_at,
+        summary: item.summary,
+      })),
+    [updates.data.updates]
   );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return (news.data ?? []).filter((item) => {
+    return news.filter((item) => {
       if (topics.length > 0 && !topics.includes(item.category)) return false;
       if (
         caenSelected.length > 0 &&
@@ -77,7 +107,7 @@ export default function LegislationPage() {
       if (!q) return true;
       return `${item.title} ${item.summary}`.toLowerCase().includes(q);
     });
-  }, [news.data, topics, caenSelected, query]);
+  }, [news, topics, caenSelected, query]);
 
   useEffect(() => {
     if (!activeArticle && filtered.length) setActiveArticle(filtered[0] ?? null);
@@ -125,6 +155,10 @@ export default function LegislationPage() {
   };
 
   const activeFilters = topics.length + caenSelected.length;
+  const saveNotifyMode = (mode: NotifyMode) => {
+    setNotifyMode(mode);
+    updatePrefs.mutate({ notify_mode: mode });
+  };
 
   return (
     <div className="space-y-6">
@@ -172,7 +206,7 @@ export default function LegislationPage() {
             <div className="space-y-1">
               {TOPICS.map((t) => {
                 const active = topics.includes(t.id);
-                const count = (news.data ?? []).filter((n) => n.category === t.id).length;
+                const count = news.filter((n) => n.category === t.id).length;
                 return (
                   <button
                     key={t.id}
@@ -243,9 +277,26 @@ export default function LegislationPage() {
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
               Frecvență digest
             </p>
-            <p className="text-xs text-muted-foreground">
-              Daily, săptămânal sau instant. Configurează în Setări.
-            </p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {NOTIFY_MODES.map((mode) => {
+                const active = notifyMode === mode.id;
+                return (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => saveNotifyMode(mode.id)}
+                    className={cn(
+                      "rounded-lg px-2 py-1.5 text-xs font-medium transition-colors",
+                      active
+                        ? "bg-foreground text-background"
+                        : "bg-foreground/5 text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {mode.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </aside>
 
@@ -331,7 +382,9 @@ export default function LegislationPage() {
                           <Sparkles className="w-3 h-3" /> AI
                         </Button>
                         <a
-                          href="#"
+                          href={article.source_url}
+                          target="_blank"
+                          rel="noreferrer"
                           className="text-[11px] inline-flex items-center gap-1 text-muted-foreground hover:text-foreground px-2 py-1"
                           onClick={(e) => e.stopPropagation()}
                         >
