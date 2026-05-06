@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import {
   Bold,
   Bot,
+  Check,
   FileText,
   Heading1,
   Italic,
@@ -22,19 +23,29 @@ import { Button } from "../../../components/ui/Button";
 import { useCollectionCreate, useCollectionList } from "../../../hooks/useCollection";
 import { useExtensions } from "../../../hooks/useExtensions";
 import { usePrincipal } from "../../../hooks/useMe";
+import {
+  teamUserDisplayName,
+  useTeamUsers,
+  type TeamUserDTO,
+} from "../../../hooks/useTeamUsers";
 import { useToast } from "../../../components/ui/Toast";
 import { api } from "../../../lib/api";
 import { deriveTicket } from "../../../lib/ai";
+import { useLocalTeams } from "../../../lib/teams";
 import { fmtRelative, cn } from "../../../lib/utils";
 import { MessageTemplates } from "./MessageTemplates";
 
 type Conversation = {
   id: number;
-  type: "direct" | "group" | "client";
+  type: "direct" | "group" | "team" | "client";
   title: string;
   unread_count: number;
   last_message: string;
   updated_at: string;
+  participant_ids?: number[];
+  participant_names?: string[];
+  team_id?: string;
+  team_name?: string;
 };
 
 type Message = {
@@ -57,6 +68,100 @@ type ChatAttachment = {
 
 const MESSAGE_RENDER_BATCH = 120;
 const CONVERSATION_RENDER_BATCH = 80;
+const LOCAL_CHAT_STORAGE_PREFIX = "contapp_local_chat_";
+
+type LocalChatState = {
+  conversations: Conversation[];
+  messages: Record<number, Message[]>;
+};
+
+function chatStorageKey(organisationId: number | null | undefined): string {
+  return `${LOCAL_CHAT_STORAGE_PREFIX}${organisationId ?? "workspace"}`;
+}
+
+function readLocalChat(organisationId: number | null | undefined): LocalChatState {
+  if (typeof window === "undefined") return { conversations: [], messages: {} };
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(chatStorageKey(organisationId)) ?? "{}");
+    if (!parsed || typeof parsed !== "object") return { conversations: [], messages: {} };
+    const raw = parsed as Partial<LocalChatState>;
+    const conversations = Array.isArray(raw.conversations)
+      ? raw.conversations.filter(isConversation)
+      : [];
+    const messages =
+      raw.messages && typeof raw.messages === "object" && !Array.isArray(raw.messages)
+        ? Object.fromEntries(
+            Object.entries(raw.messages).map(([key, value]) => [
+              Number(key),
+              Array.isArray(value) ? value.filter(isMessage) : [],
+            ])
+          )
+        : {};
+    return { conversations, messages };
+  } catch {
+    return { conversations: [], messages: {} };
+  }
+}
+
+function writeLocalChat(
+  organisationId: number | null | undefined,
+  state: LocalChatState
+) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(chatStorageKey(organisationId), JSON.stringify(state));
+}
+
+function isConversation(value: unknown): value is Conversation {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Record<string, unknown>;
+  return (
+    typeof item.id === "number" &&
+    typeof item.type === "string" &&
+    typeof item.title === "string" &&
+    typeof item.last_message === "string" &&
+    typeof item.updated_at === "string"
+  );
+}
+
+function isMessage(value: unknown): value is Message {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Record<string, unknown>;
+  return (
+    typeof item.id === "number" &&
+    typeof item.conversation_id === "number" &&
+    typeof item.sender_id === "number" &&
+    typeof item.sender_name === "string" &&
+    typeof item.content === "string" &&
+    typeof item.created_at === "string" &&
+    typeof item.is_bot === "boolean"
+  );
+}
+
+function uniqueIds(ids: Array<number | null | undefined>): number[] {
+  return Array.from(
+    new Set(ids.filter((id): id is number => typeof id === "number" && id > 0))
+  );
+}
+
+function userName(users: TeamUserDTO[] | undefined, userId: number): string {
+  const user = users?.find((item) => item.id === userId);
+  return user ? teamUserDisplayName(user) : `User #${userId}`;
+}
+
+function conversationTypeLabel(conversation: Conversation): string {
+  if (conversation.type === "direct") return "Mesaj direct";
+  if (conversation.type === "group") return "Grup";
+  if (conversation.type === "team") return "Echipă";
+  return "Conversație client";
+}
+
+function participantSummary(conversation: Conversation): string {
+  const names = conversation.participant_names ?? [];
+  if (names.length === 0) return "online";
+  const visible = names.slice(0, 3).join(", ");
+  const rest = names.length > 3 ? ` +${names.length - 3}` : "";
+  return `${names.length} membri · ${visible}${rest}`;
+}
 
 function stripHtml(content: string): string {
   return content
@@ -87,12 +192,24 @@ export default function ChatPage() {
   const toast = useToast();
   const principal = usePrincipal("user");
   const myMembershipId = principal?.kind === "user" ? principal.membership_id : null;
+  const organisationId = principal?.kind === "user" ? principal.organisation_id : null;
+  const teamsStore = useLocalTeams(organisationId);
+  const teamUsers = useTeamUsers();
   const aiAvailable = ext.canUse("ai_assistant");
   const conversations = useCollectionList<Conversation>(
     "chat-conversations",
     "/chat/conversations"
   );
   const [activeId, setActiveId] = useState<number | null>(null);
+  const [localConversations, setLocalConversations] = useState<Conversation[]>([]);
+  const [localMessages, setLocalMessages] = useState<Record<number, Message[]>>({});
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [newChatType, setNewChatType] = useState<"direct" | "group" | "team">("group");
+  const [newChatTitle, setNewChatTitle] = useState("");
+  const [newDirectUserId, setNewDirectUserId] = useState("");
+  const [newChatMemberIds, setNewChatMemberIds] = useState<number[]>([]);
+  const [newChatTeamId, setNewChatTeamId] = useState("");
+  const [localChatKey, setLocalChatKey] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [fontFamily, setFontFamily] = useState("Arial");
   const [fontSize, setFontSize] = useState("3");
@@ -108,12 +225,58 @@ export default function ChatPage() {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const allConversations = useMemo(
+    () => [...localConversations, ...(conversations.data ?? [])],
+    [localConversations, conversations.data]
+  );
+  const activeServerId = activeId !== null && activeId > 0 ? activeId : null;
+  const selectableUsers = useMemo(
+    () =>
+      (teamUsers.data ?? []).filter((user) => {
+        const activeUser = user.status !== "inactive" && user.status !== "disabled";
+        return activeUser && user.id !== myMembershipId;
+      }),
+    [teamUsers.data, myMembershipId]
+  );
+  const selectedTeam = useMemo(
+    () => teamsStore.teams.find((team) => team.id === newChatTeamId),
+    [teamsStore.teams, newChatTeamId]
+  );
+  const selectedTeamMemberIds = selectedTeam?.memberIds ?? [];
+  const canCreateLocalConversation =
+    newChatType === "direct"
+      ? Boolean(newDirectUserId)
+      : newChatType === "group"
+        ? newChatTitle.trim().length > 0 && newChatMemberIds.length > 0
+        : Boolean(newChatTeamId && selectedTeamMemberIds.length > 0);
 
   useEffect(() => {
-    if (!activeId && conversations.data?.length) {
-      setActiveId(conversations.data[0]?.id ?? null);
+    const stored = readLocalChat(organisationId);
+    setLocalConversations(stored.conversations);
+    setLocalMessages(stored.messages);
+    setLocalChatKey(chatStorageKey(organisationId));
+    setActiveId((current) =>
+      current !== null &&
+      current < 0 &&
+      !stored.conversations.some((conversation) => conversation.id === current)
+        ? null
+        : current
+    );
+  }, [organisationId]);
+
+  useEffect(() => {
+    if (localChatKey !== chatStorageKey(organisationId)) return;
+    writeLocalChat(organisationId, {
+      conversations: localConversations,
+      messages: localMessages,
+    });
+  }, [localChatKey, organisationId, localConversations, localMessages]);
+
+  useEffect(() => {
+    if (activeId === null && allConversations.length) {
+      setActiveId(allConversations[0]?.id ?? null);
     }
-  }, [activeId, conversations.data]);
+  }, [activeId, allConversations]);
 
   useEffect(() => {
     setVisibleMessageCount(MESSAGE_RENDER_BATCH);
@@ -125,17 +288,17 @@ export default function ChatPage() {
 
   const messages = useCollectionList<Message>(
     "chat-messages",
-    activeId
-      ? `/chat/conversations/${activeId}/messages`
+    activeServerId
+      ? `/chat/conversations/${activeServerId}/messages`
       : "/chat/conversations/0/messages",
     "",
-    activeId !== null
+    activeServerId !== null
   );
 
   const send = useCollectionCreate<{ content: string }, Message>(
     "chat-messages",
-    activeId
-      ? `/chat/conversations/${activeId}/messages`
+    activeServerId
+      ? `/chat/conversations/${activeServerId}/messages`
       : "/chat/conversations/0/messages"
   );
 
@@ -144,25 +307,26 @@ export default function ChatPage() {
       top: scrollerRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages.data, botDraft, confirmation]);
+  }, [messages.data, localMessages, activeId, botDraft, confirmation]);
 
   const active = useMemo(
-    () => conversations.data?.find((c) => c.id === activeId) ?? null,
-    [conversations.data, activeId]
+    () => allConversations.find((c) => c.id === activeId) ?? null,
+    [allConversations, activeId]
   );
 
   const filteredConversations = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const rows = conversations.data ?? [];
+    const rows = allConversations;
     if (!q) return rows;
     return rows.filter((c) =>
       `${c.title} ${c.last_message}`.toLowerCase().includes(q)
     );
-  }, [conversations.data, query]);
+  }, [allConversations, query]);
 
   const visibleConversations = filteredConversations.slice(0, conversationLimit);
   const hiddenConversations = Math.max(0, filteredConversations.length - visibleConversations.length);
-  const allMessages = messages.data ?? [];
+  const allMessages =
+    activeId !== null && activeId < 0 ? localMessages[activeId] ?? [] : messages.data ?? [];
   const hiddenMessages = Math.max(0, allMessages.length - visibleMessageCount);
   const visibleMessages = allMessages.slice(hiddenMessages);
 
@@ -170,6 +334,117 @@ export default function ChatPage() {
   const clearComposer = () => {
     setDraft("");
     if (composerRef.current) composerRef.current.innerHTML = "";
+  };
+
+  const appendLocalMessage = (conversationId: number, content: string, isBot = false) => {
+    const now = new Date().toISOString();
+    const plain = stripHtml(content) || "Attachment";
+    const message: Message = {
+      id: -Date.now() - Math.floor(Math.random() * 1000),
+      conversation_id: conversationId,
+      sender_id: isBot ? 0 : myMembershipId ?? 0,
+      sender_name: isBot ? "Bot" : "Tu",
+      content,
+      created_at: now,
+      is_bot: isBot,
+    };
+    setLocalMessages((current) => ({
+      ...current,
+      [conversationId]: [...(current[conversationId] ?? []), message],
+    }));
+    setLocalConversations((current) =>
+      current.map((conversation) =>
+        conversation.id === conversationId
+          ? { ...conversation, last_message: plain, updated_at: now }
+          : conversation
+      )
+    );
+  };
+
+  const resetNewChatForm = () => {
+    setNewChatTitle("");
+    setNewDirectUserId("");
+    setNewChatMemberIds([]);
+    setNewChatTeamId("");
+  };
+
+  const toggleNewChatMember = (id: number) => {
+    setNewChatMemberIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id]
+    );
+  };
+
+  const createLocalConversation = () => {
+    const now = new Date().toISOString();
+    let participantIds: number[] = [];
+    let title = newChatTitle.trim();
+    let lastMessage = "Conversație locală";
+    let teamPayload: Pick<Conversation, "team_id" | "team_name"> = {};
+
+    if (newChatType === "direct") {
+      const directUserId = Number(newDirectUserId);
+      if (!directUserId) {
+        toast.error("Alege persoana pentru chat direct.");
+        return;
+      }
+      participantIds = uniqueIds([myMembershipId, directUserId]);
+      title = userName(teamUsers.data, directUserId);
+      lastMessage = `Chat direct cu ${title}`;
+    }
+
+    if (newChatType === "group") {
+      if (!title) {
+        toast.error("Scrie numele grupului.");
+        return;
+      }
+      if (newChatMemberIds.length === 0) {
+        toast.error("Alege cel puțin un membru pentru grup.");
+        return;
+      }
+      participantIds = uniqueIds([myMembershipId, ...newChatMemberIds]);
+      lastMessage = `Grup cu ${participantIds.length} membri`;
+    }
+
+    if (newChatType === "team") {
+      if (!selectedTeam) {
+        toast.error("Alege echipa pentru chat.");
+        return;
+      }
+      if (selectedTeam.memberIds.length === 0) {
+        toast.error("Echipa selectată nu are membri.");
+        return;
+      }
+      participantIds = uniqueIds([myMembershipId, ...selectedTeam.memberIds]);
+      title = title || `Echipă: ${selectedTeam.name}`;
+      lastMessage = `Toți membrii echipei ${selectedTeam.name}`;
+      teamPayload = {
+        team_id: selectedTeam.id,
+        team_name: selectedTeam.name,
+      };
+    }
+
+    const participantNames = participantIds.map((id) =>
+      id === myMembershipId ? "Tu" : userName(teamUsers.data, id)
+    );
+    const conversation: Conversation = {
+      id: -Date.now(),
+      type: newChatType,
+      title,
+      unread_count: 0,
+      last_message: lastMessage,
+      updated_at: now,
+      participant_ids: participantIds,
+      participant_names: participantNames,
+      ...teamPayload,
+    };
+    setLocalConversations((current) => [conversation, ...current]);
+    setLocalMessages((current) => ({ ...current, [conversation.id]: [] }));
+    setActiveId(conversation.id);
+    setNewChatOpen(false);
+    resetNewChatForm();
+    toast.success("Conversație creată local.");
   };
 
   const triggerBot = async () => {
@@ -194,7 +469,11 @@ export default function ChatPage() {
       ticket: { id: number; title: string };
       confirmation: string;
     }>("/chat/derive-ticket", { message: plain });
-    await send.mutateAsync({ content: `@bot ${latest}` });
+    if (activeId !== null && activeId < 0) {
+      appendLocalMessage(activeId, `@bot ${latest}`, true);
+    } else {
+      await send.mutateAsync({ content: `@bot ${latest}` });
+    }
     setConfirmation(result.confirmation || `Am creat ticketul #${result.ticket.id}.`);
     setBotBusy(false);
     clearComposer();
@@ -257,12 +536,18 @@ export default function ChatPage() {
             .join(", ")}</p>`
         : "";
     const payload = `${draft || escapeHtml(plain)}${attachmentBlock}`;
+    if (activeId < 0) {
+      appendLocalMessage(activeId, payload);
+      clearComposer();
+      setAttachments([]);
+      return;
+    }
     await send.mutateAsync({ content: payload });
     clearComposer();
     setAttachments([]);
   };
 
-  const totalUnread = (conversations.data ?? []).reduce(
+  const totalUnread = allConversations.reduce(
     (acc, c) => acc + c.unread_count,
     0
   );
@@ -287,8 +572,8 @@ export default function ChatPage() {
             <Button
               size="xs"
               variant="outline"
-              disabled
-              title="Backend-ul expune momentan lista și mesajele, nu crearea de conversații."
+              onClick={() => setNewChatOpen((open) => !open)}
+              title="Creează conversație locală"
             >
               <MessageSquarePlus className="w-3.5 h-3.5" />
             </Button>
@@ -302,6 +587,143 @@ export default function ChatPage() {
               className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-accent/40"
             />
           </div>
+          {newChatOpen && (
+            <div className="rounded-xl border border-border bg-background p-2 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={newChatType}
+                  onChange={(event) => {
+                    setNewChatType(event.target.value as "direct" | "group" | "team");
+                    resetNewChatForm();
+                  }}
+                  className="rounded-lg border border-border bg-frame px-2 py-1.5 text-xs outline-none"
+                >
+                  <option value="group">Grup</option>
+                  <option value="direct">Direct</option>
+                  <option value="team">Echipă</option>
+                </select>
+                {newChatType === "direct" ? (
+                  <select
+                    value={newDirectUserId}
+                    onChange={(event) => setNewDirectUserId(event.target.value)}
+                    className="rounded-lg border border-border bg-frame px-2 py-1.5 text-xs outline-none"
+                  >
+                    <option value="">Alege persoana</option>
+                    {selectableUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {teamUserDisplayName(user)}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    value={newChatTitle}
+                    onChange={(event) => setNewChatTitle(event.target.value)}
+                    placeholder={newChatType === "team" ? "Nume opțional" : "Nume grup"}
+                    className="rounded-lg border border-border bg-frame px-2 py-1.5 text-xs outline-none"
+                  />
+                )}
+              </div>
+
+              {newChatType === "group" && (
+                <div className="rounded-lg border border-border bg-frame p-2">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-[11px] font-semibold">Membri grup</p>
+                    <span className="text-[10px] text-muted-foreground">
+                      {newChatMemberIds.length} selectați
+                    </span>
+                  </div>
+                  {selectableUsers.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-3 text-center">
+                      Nu există oameni disponibili.
+                    </p>
+                  ) : (
+                    <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+                      {selectableUsers.map((user) => {
+                        const selected = newChatMemberIds.includes(user.id);
+                        return (
+                          <button
+                            key={user.id}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => toggleNewChatMember(user.id)}
+                            className={cn(
+                              "w-full rounded-lg px-2 py-1.5 text-left text-xs flex items-center gap-2 transition-colors",
+                              selected ? "bg-foreground/10" : "hover:bg-foreground/5"
+                            )}
+                          >
+                            <Avatar name={teamUserDisplayName(user)} size="xs" />
+                            <span className="flex-1 min-w-0 truncate">
+                              {teamUserDisplayName(user)}
+                            </span>
+                            {selected && <Check className="w-3.5 h-3.5" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {newChatType === "team" && (
+                <div className="space-y-2">
+                  <select
+                    value={newChatTeamId}
+                    onChange={(event) => setNewChatTeamId(event.target.value)}
+                    className="w-full rounded-lg border border-border bg-frame px-2 py-1.5 text-xs outline-none"
+                  >
+                    <option value="">Alege echipa</option>
+                    {teamsStore.teams.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="rounded-lg border border-border bg-frame p-2">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <p className="text-[11px] font-semibold">Membri incluși</p>
+                      <span className="text-[10px] text-muted-foreground">
+                        {selectedTeamMemberIds.length}
+                      </span>
+                    </div>
+                    {!selectedTeam ? (
+                      <p className="text-xs text-muted-foreground py-3 text-center">
+                        Selectează o echipă.
+                      </p>
+                    ) : selectedTeamMemberIds.length === 0 ? (
+                      <p className="text-xs text-muted-foreground py-3 text-center">
+                        Echipa nu are membri.
+                      </p>
+                    ) : (
+                      <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
+                        {selectedTeamMemberIds.map((memberId) => (
+                          <div
+                            key={memberId}
+                            className="rounded-lg px-2 py-1.5 text-xs flex items-center gap-2 bg-foreground/5"
+                          >
+                            <Avatar name={userName(teamUsers.data, memberId)} size="xs" />
+                            <span className="flex-1 min-w-0 truncate">
+                              {memberId === myMembershipId ? "Tu" : userName(teamUsers.data, memberId)}
+                            </span>
+                            <Check className="w-3.5 h-3.5 text-foreground/60" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <Button
+                size="xs"
+                className="w-full"
+                onClick={createLocalConversation}
+                disabled={!canCreateLocalConversation}
+              >
+                Creează chat
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto min-h-0">
@@ -379,7 +801,7 @@ export default function ChatPage() {
             <Bot className="w-3 h-3 text-foreground/70" />
             {aiAvailable ? "@bot disponibil" : "@bot blocat"}
           </span>
-          <span>{(conversations.data ?? []).length} total</span>
+          <span>{allConversations.length} total</span>
         </div>
       </aside>
 
@@ -394,12 +816,7 @@ export default function ChatPage() {
                   <p className="text-sm font-semibold truncate">{active.title}</p>
                   <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--accent)]" />
-                    {active.type === "direct"
-                      ? "Mesaj direct"
-                      : active.type === "group"
-                        ? "Grup"
-                        : "Conversație client"}
-                    · online
+                    {conversationTypeLabel(active)} · {participantSummary(active)}
                   </p>
                 </div>
               </div>

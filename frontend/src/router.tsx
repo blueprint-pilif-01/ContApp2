@@ -18,6 +18,7 @@ import LandingPage from "./App";
 const DashboardPage        = lazy(() => import("./app/pages/DashboardPage"));
 const ClientsPage          = lazy(() => import("./app/pages/clients/ClientsPage"));
 const ClientDetailPage     = lazy(() => import("./app/pages/clients/ClientDetailPage"));
+const EmployeesPage        = lazy(() => import("./app/pages/employees/EmployeesPage"));
 const TicketingPage        = lazy(() => import("./app/pages/ticketing/TicketingPage"));
 const ChatPage             = lazy(() => import("./app/pages/chat/ChatPage"));
 const CalendarPage         = lazy(() => import("./app/pages/calendar/CalendarPage"));
@@ -40,7 +41,16 @@ const ClientPortalPage     = lazy(() => import("./public/ClientPortalPage"));
 const ReportsPage          = lazy(() => import("./app/pages/reports/ReportsPage"));
 const DocumentsPage        = lazy(() => import("./app/pages/documents/DocumentsPage"));
 const ActivityLogPage      = lazy(() => import("./app/pages/settings/ActivityLogPage"));
-const AutomationRulesPage  = lazy(() => import("./app/pages/settings/AutomationRulesPage"));
+const AutomationLayout          = lazy(() => import("./app/pages/automations/AutomationLayout"));
+const AutomationOverviewPage    = lazy(() => import("./app/pages/automations/OverviewPage"));
+const AutomationWorkflowsPage   = lazy(() => import("./app/pages/automations/WorkflowsPage"));
+const AutomationWorkflowBuilderPage = lazy(() =>
+  import("./app/pages/automations/WorkflowBuilderPage"),
+);
+const AutomationTemplatesPage   = lazy(() => import("./app/pages/automations/TemplatesPage"));
+const AutomationAIStudioPage    = lazy(() => import("./app/pages/automations/AIStudioPage"));
+const AutomationRunsPage        = lazy(() => import("./app/pages/automations/RunsPage"));
+const AutomationInsightsPage    = lazy(() => import("./app/pages/automations/InsightsPage"));
 
 // ── Admin pages (lazy) ───────────────────────────────────────────────────────
 const AdminDashboardPage    = lazy(() => import("./app/admin/pages/AdminDashboardPage"));
@@ -108,6 +118,7 @@ export const router = createBrowserRouter([
 
       // Phase 3 — Operațional
       { path: "ticketing", element: <G ext="ticketing_pro"><TicketingPage /></G> },
+      { path: "employees", element: <S><EmployeesPage /></S> },
       { path: "chat", element: <G ext="internal_chat"><ChatPage /></G> },
       { path: "calendar", element: <S><CalendarPage /></S> },
       { path: "hr", element: <G ext="hr_pro"><HrPage /></G> },
@@ -138,7 +149,30 @@ export const router = createBrowserRouter([
       { path: "reports", element: <S><ReportsPage /></S> },
       { path: "documents", element: <S><DocumentsPage /></S> },
       { path: "settings/activity-log", element: <S><RequireWorkspaceSettingsAccess><ActivityLogPage /></RequireWorkspaceSettingsAccess></S> },
-      { path: "settings/automations", element: <S><RequireWorkspaceSettingsAccess><AutomationRulesPage /></RequireWorkspaceSettingsAccess></S> },
+      {
+        path: "automations",
+        element: (
+          <S>
+            <RequireWorkspaceSettingsAccess>
+              <AutomationLayout />
+            </RequireWorkspaceSettingsAccess>
+          </S>
+        ),
+        children: [
+          { index: true, element: <AutomationOverviewPage /> },
+          { path: "workflows", element: <AutomationWorkflowsPage /> },
+          { path: "workflows/new", element: <AutomationWorkflowBuilderPage /> },
+          { path: "workflows/:id", element: <AutomationWorkflowBuilderPage /> },
+          { path: "templates", element: <AutomationTemplatesPage /> },
+          { path: "ai-studio", element: <AutomationAIStudioPage /> },
+          { path: "runs", element: <AutomationRunsPage /> },
+          { path: "insights", element: <AutomationInsightsPage /> },
+        ],
+      },
+      {
+        path: "settings/automations",
+        element: <Navigate to="/app/automations/workflows" replace />,
+      },
 
       { path: "_kitchen-sink", element: <S><AiKitchenSinkPage /></S> },
     ],

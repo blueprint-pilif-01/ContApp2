@@ -13,6 +13,7 @@ import {
   type WorkspacePrincipal,
 } from "../lib/session";
 import { inferWorkspacePermissions } from "../lib/access";
+import { hasPermissionSlug } from "../lib/permissions";
 
 export const ME_KEY = ["me"] as const;
 export const ADMIN_ME_KEY = ["admin", "me"] as const;
@@ -193,5 +194,5 @@ export function useAdminMe(): {
 /** Returns true if the session principal has the given permission. */
 export function hasPermission(permission: string, actor?: SessionActor): boolean {
   const permissions = getSession(actor)?.principal.permissions ?? [];
-  return permissions.includes("*") || permissions.includes(permission);
+  return hasPermissionSlug(permissions, permission);
 }

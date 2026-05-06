@@ -71,6 +71,7 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
     label: "Operațional",
     items: [
       { label: "Clienți", href: "/app/clients", icon: Users, end: false, extension: "contracts_pro" },
+      { label: "Angajați", href: "/app/employees", icon: BriefcaseBusiness, end: false },
       { label: "Ticketing", href: "/app/ticketing", icon: KanbanSquare, end: false, extension: "ticketing_pro" },
       { label: "Chat intern", href: "/app/chat", icon: MessageSquare, end: false, extension: "internal_chat" },
     ],
@@ -117,19 +118,24 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
     ],
   },
   {
+    label: "Automatizări",
+    items: [
+      {
+        label: "Studio automatizări",
+        href: "/app/automations",
+        icon: Zap,
+        end: false,
+        adminOnly: true,
+      },
+    ],
+  },
+  {
     items: [
       { label: "Setări", href: "/app/settings", icon: Settings, end: false },
       {
         label: "Users + Roles",
         href: "/app/settings/users-roles",
         icon: Users,
-        end: false,
-        adminOnly: true,
-      },
-      {
-        label: "Automatizări",
-        href: "/app/settings/automations",
-        icon: Zap,
         end: false,
         adminOnly: true,
       },

@@ -37,6 +37,11 @@ import {
   extensionLabelOneLine,
   type ExtensionKey,
 } from "../../../lib/extensions";
+import {
+  clearStoredSignature,
+  readStoredSignature,
+  saveStoredSignature,
+} from "../../../lib/signatureStorage";
 import { cn } from "../../../lib/utils";
 
 type SectionId = "profile" | "security" | "subscription" | "signature" | "team";
@@ -191,7 +196,6 @@ function ProfileSection({ canManageWorkspace }: { canManageWorkspace: boolean })
     const nextLastName = lastName.trim();
     const nextEmail = email.trim();
     const nextPhone = phone.trim();
-    const nextName = `${nextFirstName} ${nextLastName}`.trim() || nextEmail;
     update.mutate(
       {
         organisation_id: principal.organisation_id ?? 0,
@@ -425,6 +429,23 @@ function SubscriptionSection() {
 
   const plan = sub?.plan ?? "—";
   const periodEnd = sub?.periodEnd ? new Date(sub.periodEnd) : null;
+  const planCards = [
+    {
+      name: "Starter",
+      price: "59 EUR/lună",
+      description: "Operațional de bază, documente și clienți.",
+    },
+    {
+      name: "Pro",
+      price: "149 EUR/lună",
+      description: "Contracte, ticketing, HR și extensii avansate.",
+    },
+    {
+      name: "Business",
+      price: "299 EUR/lună",
+      description: "Echipe, RBAC granular, audit și usage extins.",
+    },
+  ];
 
   const usageRows = sub
     ? [
@@ -464,9 +485,45 @@ function SubscriptionSection() {
             </p>
           )}
         </div>
-        <Button variant="outline" size="sm">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => toast.info("Schimbarea planului este pregătită în UI și marcată backend pending.")}
+        >
           <ArrowRight className="w-4 h-4" /> Schimbă plan
         </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {planCards.map((card) => {
+          const current = card.name.toLowerCase() === plan.toLowerCase();
+          return (
+            <article
+              key={card.name}
+              className={cn(
+                "rounded-2xl border bg-frame p-4 space-y-3",
+                current ? "border-[color:var(--accent)]" : "border-border"
+              )}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold">{card.name}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">{card.description}</p>
+                </div>
+                {current && <Badge variant="success">curent</Badge>}
+              </div>
+              <p className="text-lg font-semibold">{card.price}</p>
+              <Button
+                size="sm"
+                variant={current ? "ghost" : "outline"}
+                disabled={current}
+                onClick={() => toast.info(`Planul ${card.name} este pregătit în UI. Activarea reală este backend pending.`)}
+              >
+                {current ? "Activ" : "Alege planul"}
+              </Button>
+            </article>
+          );
+        })}
       </div>
 
       {usageRows.length > 0 && (
@@ -588,7 +645,16 @@ function SignatureSection() {
   const [drawMode, setDrawMode] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [sigName, setSigName] = useState("Semnătura mea");
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const stored = readStoredSignature();
+    if (!stored) return;
+    setSigName(stored.name);
+    setPending(stored.image);
+    setSavedAt(stored.updated_at);
+  }, []);
 
   const saveSignature = () => {
     if (!sigName.trim()) {
@@ -605,18 +671,16 @@ function SignatureSection() {
         principal?.kind === "user"
           ? (principal.membership_id ?? principal.id)
           : 0;
-      localStorage.setItem(
-        "contapp_local_signature",
-        JSON.stringify({
-          name: sigName.trim(),
-          owner_id: ownerId,
-          image: pending,
-          updated_at: new Date().toISOString(),
-        })
-      );
+      const updatedAt = new Date().toISOString();
+      saveStoredSignature({
+        name: sigName.trim(),
+        owner_id: ownerId,
+        image: pending,
+        updated_at: updatedAt,
+      });
+      setSavedAt(updatedAt);
       toast.success("Semnătură pregătită local.");
       setDrawMode(false);
-      setPending(null);
     } catch {
       toast.error("Semnătura nu a putut fi salvată în browser.");
     } finally {
@@ -642,7 +706,14 @@ function SignatureSection() {
         <h2 className="text-sm font-semibold tracking-tight mb-3">Previzualizare semnătură</h2>
         <div className="rounded-xl border border-border bg-background min-h-[140px] flex items-center justify-center p-4">
           {pending ? (
-            <img src={pending} alt="Semnătură" className="max-h-32 object-contain" />
+            <div className="text-center">
+              <img src={pending} alt="Semnătură" className="max-h-32 object-contain mx-auto" />
+              {savedAt && (
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  Salvată local {new Date(savedAt).toLocaleString("ro-RO")}
+                </p>
+              )}
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">
               Nicio semnătură pregătită. Desenează sau încarcă una mai jos.
@@ -695,6 +766,8 @@ function SignatureSection() {
             onClick={() => {
               setDrawMode(false);
               setPending(null);
+              setSavedAt(null);
+              clearStoredSignature();
             }}
           >
             Resetează
