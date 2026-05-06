@@ -71,6 +71,7 @@ type EffectivePermissions = {
 
 const DEFAULT_ROLE_ID = 2;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const BACKEND_PERMISSION_SLUGS = new Set(PERMISSION_CATALOG.map((permission) => permission.slug));
 
 function isOwnerRole(role: AppRole | null | undefined): boolean {
   const text = `${role?.name ?? ""} ${role?.description ?? ""}`.toLowerCase();
@@ -79,6 +80,11 @@ function isOwnerRole(role: AppRole | null | undefined): boolean {
 
 function permissionsForGroup(groupID: string): PermissionDefinition[] {
   return PERMISSION_CATALOG.filter((permission) => permission.group === groupID);
+}
+
+function validRolePermissions(permissions: string[]): string[] {
+  if (permissions.includes("*")) return ["*"];
+  return permissions.filter((permission) => BACKEND_PERMISSION_SLUGS.has(permission));
 }
 
 export default function UsersRolesPage() {
@@ -980,7 +986,7 @@ function RolesTab() {
     setEditing(role);
     setName(role.name);
     setDescription(role.description);
-    setSelectedPermissions(role.permissions ?? []);
+    setSelectedPermissions(validRolePermissions(role.permissions ?? []));
     setOpen(true);
   };
 
@@ -1000,7 +1006,7 @@ function RolesTab() {
     const payload = {
       name: name.trim(),
       description: description.trim(),
-      permissions: selectedPermissions,
+      permissions: validRolePermissions(selectedPermissions),
     };
     if (editing) {
       update.mutate(
@@ -1153,7 +1159,7 @@ function RolesTab() {
                 {selectedPermissions.includes("*") && <Check className="w-4 h-4" />}
               </span>
               <span className="text-xs text-muted-foreground mt-1 block">
-                Include toate permisiunile curente și viitoare.
+                Include toate permisiunile backend definite în prezent.
               </span>
             </button>
           </div>

@@ -843,6 +843,17 @@ func upsertSettingsRole(ctx context.Context, db *sql.DB, organisationID, roleID 
 		if permission == "" {
 			continue
 		}
+		if permission == "*" {
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO role_permissions (role_id, permission_id)
+				SELECT $1, id
+				FROM permissions
+				ON CONFLICT DO NOTHING
+			`, roleID); err != nil {
+				return nil, err
+			}
+			continue
+		}
 		var permissionID int64
 		if err := tx.QueryRowContext(ctx, `
 			SELECT id

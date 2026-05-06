@@ -102,6 +102,7 @@ func (a *App) mountProtectedRoutes(r chi.Router) {
 		workspace.With(a.requirePermission(PermMembersWrite)).Post("/members", a.createMember)
 		workspace.With(a.requirePermission(PermMembersRead)).Get("/members/{id}", a.getMember)
 		workspace.With(a.requirePermission(PermMembersWrite)).Patch("/members/{id}", a.updateMember)
+		workspace.With(a.requirePermission(PermMembersWrite)).Put("/members/{id}", a.updateMember)
 		workspace.With(a.requirePermission(PermMembersWrite)).Patch("/members/{id}/status", a.updateMemberStatus)
 		workspace.With(a.requirePermission(PermRolesWrite)).Put("/members/{id}/roles", a.setMemberRoles)
 
@@ -211,6 +212,7 @@ func (a *App) mountProtectedRoutes(r chi.Router) {
 		workspace.With(a.requirePermission(PermAutomationWrite)).Post("/automation-rules", a.createAutomationRule)
 		workspace.With(a.requirePermission(PermAutomationWrite)).Put("/automation-rules/{id}", a.updateAutomationRule)
 		workspace.With(a.requirePermission(PermAutomationDelete)).Delete("/automation-rules/{id}", a.deleteAutomationRule)
+		workspace.With(a.requirePermission(PermAutomationRead)).Post("/ai/suggest-workflows", a.suggestAIWorkflows)
 
 		workspace.With(a.requirePermission(PermReportsRead)).Get("/reports/overview", a.getReportsOverview)
 
